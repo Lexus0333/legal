@@ -59,8 +59,8 @@ a{color:var(--accent)}
   <section class="card">
     <h2>TikTok accounts</h2>
     <div class="table-scroll"><table>
-      <thead><tr><th>Account</th><th>Authorization</th><th>Access token</th></tr></thead>
-      <tbody id="accounts"><tr><td colspan="3" class="empty">Load data to see connected accounts.</td></tr></tbody>
+      <thead><tr><th>Account</th><th>Authorization</th><th>Access token</th><th></th></tr></thead>
+      <tbody id="accounts"><tr><td colspan="4" class="empty">Load data to see connected accounts.</td></tr></tbody>
     </table></div>
     <div class="row" style="margin-top:14px">
       <div class="grow"><label for="acc-name">Account name (as used in the queue)</label><input id="acc-name" style="width:100%" placeholder="account1" autocomplete="off"></div>
@@ -109,8 +109,8 @@ a{color:var(--accent)}
   }
   function badgeClass(s) { return 'b-' + String(s || '').toLowerCase(); }
 
-  function api(action) {
-    var url = base() + '/webhook/console-api?key=' + encodeURIComponent($('key').value) + (action ? '&action=' + action : '');
+  function api(action, extra) {
+    var url = base() + '/webhook/console-api?key=' + encodeURIComponent($('key').value) + (action ? '&action=' + action : '') + (extra || '');
     return fetch(url, { headers: { 'ngrok-skip-browser-warning': '1' } }).then(function (r) {
       if (r.status === 403) throw new Error('Wrong access key.');
       if (!r.ok) throw new Error('Server error (' + r.status + ').');
@@ -120,12 +120,16 @@ a{color:var(--accent)}
 
   function render(d) {
     var ab = $('accounts'); ab.textContent = '';
-    if (!d.accounts.length) { ab.innerHTML = '<tr><td colspan="3" class="empty">No accounts connected yet.</td></tr>'; }
+    if (!d.accounts.length) { ab.innerHTML = '<tr><td colspan="4" class="empty">No accounts connected yet.</td></tr>'; }
     d.accounts.forEach(function (a) {
       var tr = document.createElement('tr');
       cell(tr, a.account);
       cell(tr, a.connected ? 'Connected' : 'Not connected', a.connected ? 'b-yes' : 'b-no');
       cell(tr, a.access_valid ? 'Valid' : 'Refreshed automatically on next post', a.access_valid ? 'b-yes' : 'b-check');
+      var td = document.createElement('td'), btn = document.createElement('button');
+      btn.className = 'ghost'; btn.textContent = 'Disconnect';
+      btn.onclick = function () { disconnect(a.account, btn); };
+      td.appendChild(btn); tr.appendChild(td);
       ab.appendChild(tr);
     });
     var qb = $('queue'); qb.textContent = '';
@@ -149,6 +153,16 @@ a{color:var(--accent)}
     save('exe_server', base()); save('exe_key', $('key').value, true);
     return api().then(function (d) { render(d); setMsg('conn-msg', 'Updated ' + new Date(d.server_time).toLocaleTimeString(), 'ok'); })
       .catch(function (e) { setMsg('conn-msg', e.message === 'Failed to fetch' ? 'Cannot reach the server.' : e.message, 'err'); });
+  }
+
+  function disconnect(name, btn) {
+    if (!window.confirm('Disconnect "' + name + '"? TikTok access for this app will be revoked and stored tokens deleted.')) return;
+    btn.disabled = true; setMsg('conn-msg', 'Disconnecting...');
+    api('disconnect', '&account=' + encodeURIComponent(name)).then(function (r) {
+      return load().then(function () {
+        setMsg('conn-msg', r.revoked ? 'Access revoked. Connect the account again to see the TikTok permission screen.' : 'Account removed from the tool.' + (r.revoke_error ? ' TikTok did not confirm the revocation: ' + r.revoke_error : ''), r.revoked ? 'ok' : 'err');
+      });
+    }).catch(function (e) { setMsg('conn-msg', e.message, 'err'); btn.disabled = false; });
   }
 
   $('btn-connect').onclick = load;
