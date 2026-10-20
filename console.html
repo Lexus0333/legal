@@ -9,80 +9,95 @@
 @media (prefers-color-scheme:dark){:root{--bg:#101215;--card:#181b20;--text:#e6e8eb;--muted:#9aa4b2;--line:#2a2f37;--accent:#7ab0ff;--ok:#6ce9a6;--okbg:#0b2a1b;--warn:#fec84b;--warnbg:#2b2108;--err:#fda29b;--errbg:#2d1311;--info:#84caff;--infobg:#0c2338}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
-.wrap{max-width:900px;margin:0 auto;padding:24px 16px 48px}
+.wrap{max-width:860px;margin:0 auto;padding:24px 16px 48px}
 h1{font-size:22px;margin:0 0 4px}
-h2{font-size:16px;margin:0 0 12px}
 .sub{color:var(--muted);margin:0 0 20px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+.card.locked{opacity:.55}
+.head{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}
+.num{flex:none;width:28px;height:28px;border-radius:50%;background:var(--infobg);color:var(--info);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px}
+.num.done{background:var(--okbg);color:var(--ok)}
+h2{font-size:16px;margin:0}
+.hint{color:var(--muted);font-size:14px;margin:2px 0 0}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
-input{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+input{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
 .grow{flex:1 1 220px}
 button{font:inherit;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:8px 14px}
 @media (prefers-color-scheme:dark){button{color:#0b1220}}
 button.ghost{background:transparent;color:var(--accent)}
+button.link{border:0;background:none;color:var(--muted);padding:2px 4px;text-decoration:underline;font-size:13px}
 button:disabled{opacity:.5;cursor:not-allowed}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
 th{color:var(--muted);font-weight:500;font-size:13px}
 .table-scroll{overflow-x:auto}
-.badge{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px;font-weight:500}
-.b-ready{background:var(--infobg);color:var(--info)}
-.b-posted,.b-yes{background:var(--okbg);color:var(--ok)}
-.b-processing,.b-check{background:var(--warnbg);color:var(--warn)}
-.b-error,.b-no{background:var(--errbg);color:var(--err)}
-.msg{margin:10px 0 0;font-size:14px}
-.msg.err{color:var(--err)}.msg.ok{color:var(--ok)}
+.badge{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px;font-weight:500;white-space:nowrap}
+.b-wait{background:var(--infobg);color:var(--info)}
+.b-ok{background:var(--okbg);color:var(--ok)}
+.b-busy{background:var(--warnbg);color:var(--warn)}
+.b-fail{background:var(--errbg);color:var(--err)}
+.msg{margin:10px 0 0;font-size:14px;min-height:1.2em}
+.msg.err{color:var(--err)}.msg.ok{color:var(--ok)}.msg.busy{color:var(--warn)}
 .muted{color:var(--muted)}
 .small{font-size:13px}
-.empty{color:var(--muted);padding:8px 0}
+.empty{color:var(--muted);padding:10px 0}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
 footer{color:var(--muted);font-size:13px;margin-top:24px}
 a{color:var(--accent)}
+details summary{cursor:pointer;color:var(--accent);font-size:14px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>EXE Agency Publisher</h1>
-  <p class="sub">Internal console for publishing our own videos to our own TikTok accounts. Not offered to the public.</p>
+  <p class="sub">Publish our own videos to our own TikTok accounts in three steps. Internal tool, not offered to the public.</p>
 
-  <section class="card" id="conn-card">
-    <h2>Connection to the publishing server</h2>
+  <section class="card" id="card1">
+    <div class="head"><div class="num" id="num1">1</div>
+      <div><h2>Connect to the publishing server</h2>
+      <p class="hint">Enter the server address and your access key (provided by the administrator).</p></div></div>
     <div class="row">
-      <div class="grow"><label for="server">Server URL</label><input id="server" style="width:100%" placeholder="https://n8n.example.com" autocomplete="off"></div>
-      <div class="grow"><label for="key">Access key</label><input id="key" type="password" style="width:100%" autocomplete="off"></div>
-      <button id="btn-connect">Load data</button>
+      <div class="grow"><label for="server">Server address</label><input id="server" placeholder="https://n8n.example.com" autocomplete="off"></div>
+      <div class="grow"><label for="key">Access key</label><input id="key" type="password" autocomplete="off"></div>
+      <button id="btn-connect">Connect</button>
     </div>
-    <p class="msg small muted">The access key is kept only in this browser tab and is never stored on this site.</p>
     <p class="msg" id="conn-msg"></p>
+    <p class="small muted" style="margin:6px 0 0">The key stays in this browser tab only and is never stored on this site.</p>
   </section>
 
-  <section class="card">
-    <h2>TikTok accounts</h2>
+  <section class="card locked" id="card2">
+    <div class="head"><div class="num" id="num2">2</div>
+      <div><h2>Connect a TikTok account</h2>
+      <p class="hint">You will be sent to TikTok to sign in and approve access (basic profile info and posting of videos), then brought back here.</p></div></div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Account</th><th>Authorization</th><th>Access token</th><th></th></tr></thead>
-      <tbody id="accounts"><tr><td colspan="4" class="empty">Load data to see connected accounts.</td></tr></tbody>
+      <thead><tr><th>Account</th><th>Status</th><th></th></tr></thead>
+      <tbody id="accounts"><tr><td colspan="3" class="empty">Complete step 1 to see your accounts.</td></tr></tbody>
     </table></div>
     <div class="row" style="margin-top:14px">
-      <div class="grow"><label for="acc-name">Account name (as used in the queue)</label><input id="acc-name" style="width:100%" placeholder="account1" autocomplete="off"></div>
-      <button id="btn-add" class="ghost">Connect TikTok account</button>
+      <div class="grow"><label for="acc-name">Account name (a label you choose; it is used in the queue)</label><input id="acc-name" value="account1" autocomplete="off"></div>
+      <button id="btn-add">Connect TikTok account</button>
     </div>
-    <p class="msg small muted">You will be redirected to TikTok (Login Kit) to sign in and approve access: basic profile info and posting of videos.</p>
+    <p class="msg" id="acc-msg"></p>
   </section>
 
-  <section class="card">
-    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
-      <h2 style="margin:0">Publishing queue</h2>
-      <div class="row">
-        <button id="btn-refresh" class="ghost">Refresh</button>
-        <button id="btn-run">Publish next now</button>
-      </div>
+  <section class="card locked" id="card3">
+    <div class="head"><div class="num" id="num3">3</div>
+      <div><h2>Publish videos</h2>
+      <p class="hint">Videos are taken from the publishing queue (a Google Sheet). Rows marked “Waiting to publish” are posted to TikTok, one at a time.</p></div></div>
+    <div class="row" style="margin-bottom:8px">
+      <button id="btn-run" disabled>Publish next video</button>
+      <button id="btn-refresh" class="ghost">Refresh</button>
     </div>
-    <div class="table-scroll"><table>
-      <thead><tr><th>#</th><th>Status</th><th>Account</th><th>Hook</th><th>Caption</th><th>TikTok</th></tr></thead>
-      <tbody id="queue"><tr><td colspan="6" class="empty">Load data to see the queue.</td></tr></tbody>
-    </table></div>
     <p class="msg" id="run-msg"></p>
-    <p class="msg small muted">Videos are posted through the TikTok Content Posting API (Direct Post). Until the app is approved by TikTok, posts are private (visible only to the account owner). AI-generated videos are labelled as AI-generated.</p>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Status</th><th>Video</th><th>Account</th><th>Result</th></tr></thead>
+      <tbody id="queue"><tr><td colspan="4" class="empty">Complete step 1 to see the queue.</td></tr></tbody>
+    </table></div>
+    <details style="margin-top:12px"><summary>How does publishing work?</summary>
+      <p class="small muted">Each video is downloaded from Google Drive, a short hook text is added to the first seconds, and the file is uploaded through the TikTok Content Posting API (Direct Post) to the connected account. Until the app is approved by TikTok, posts are private and visible only to the account owner. AI-generated videos are labelled as AI-generated.</p>
+    </details>
   </section>
 
   <footer>
@@ -93,97 +108,165 @@ a{color:var(--accent)}
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var store = { get: function (k) { try { return sessionStorage.getItem(k) || localStorage.getItem(k) || ''; } catch (e) { return ''; } } };
+  function get(k, session) { try { return (session ? sessionStorage : localStorage).getItem(k) || ''; } catch (e) { return ''; } }
   function save(k, v, session) { try { (session ? sessionStorage : localStorage).setItem(k, v); } catch (e) {} }
 
-  $('server').value = store.get('exe_server');
-  $('key').value = (function () { try { return sessionStorage.getItem('exe_key') || ''; } catch (e) { return ''; } })();
+  var connected = false, poll = null;
+  $('server').value = get('exe_server');
+  $('key').value = get('exe_key', true);
 
   function base() { return $('server').value.trim().replace(/\/+$/, ''); }
-  function setMsg(id, text, cls) { var el = $(id); el.textContent = text || ''; el.className = 'msg' + (cls ? ' ' + cls : ''); }
+  function setMsg(id, text, cls, spin) {
+    var el = $(id); el.textContent = '';
+    if (spin) { var s = document.createElement('span'); s.className = 'spin'; el.appendChild(s); }
+    el.appendChild(document.createTextNode(text || ''));
+    el.className = 'msg' + (cls ? ' ' + cls : '');
+  }
   function cell(tr, text, cls) {
     var td = document.createElement('td');
     if (cls) { var b = document.createElement('span'); b.className = 'badge ' + cls; b.textContent = text; td.appendChild(b); }
     else td.textContent = text;
     tr.appendChild(td); return td;
   }
-  function badgeClass(s) { return 'b-' + String(s || '').toLowerCase(); }
+  function emptyRow(tbody, cols, text) {
+    tbody.textContent = '';
+    var tr = document.createElement('tr'), td = document.createElement('td');
+    td.colSpan = cols; td.className = 'empty'; td.textContent = text; tr.appendChild(td); tbody.appendChild(tr);
+  }
+
+  var STATUS = {
+    ready: ['Waiting to publish', 'b-wait'], processing: ['Publishing…', 'b-busy'], posted: ['Published', 'b-ok'],
+    check: ['Needs a manual check', 'b-busy'], error: ['Failed', 'b-fail']
+  };
+  function statusOf(s) { return STATUS[String(s || '').toLowerCase()] || [s || '-', 'b-wait']; }
+  function resultOf(r) {
+    var s = String(r.status || '').toLowerCase();
+    if (s === 'posted') return 'Posted to TikTok' + (String(r.privacy).indexOf('SELF_ONLY') === 0 ? ' as a private video (only you can see it)' : '');
+    if (s === 'error') return friendlyError(r.error);
+    if (s === 'check') return 'TikTok has not confirmed the post yet. Check the account before publishing again.';
+    if (s === 'processing') return 'In progress…';
+    return '';
+  }
+  function friendlyError(e) {
+    e = String(e || '');
+    if (/not connected/i.test(e)) return 'This account is not connected. Complete step 2.';
+    if (/private accounts/i.test(e)) return 'TikTok allows only private accounts until the app is approved. Make the TikTok account private.';
+    if (/could not be found/i.test(e)) return 'The video file was not found in Google Drive. Check the link and sharing settings.';
+    return e ? 'Something went wrong: ' + e.slice(0, 140) : 'Something went wrong.';
+  }
+
+  function lock(on) {
+    ['card2', 'card3'].forEach(function (id) { $(id).className = 'card' + (on ? ' locked' : ''); });
+  }
 
   function api(action, extra) {
     var url = base() + '/webhook/console-api?key=' + encodeURIComponent($('key').value) + (action ? '&action=' + action : '') + (extra || '');
     return fetch(url, { headers: { 'ngrok-skip-browser-warning': '1' } }).then(function (r) {
-      if (r.status === 403) throw new Error('Wrong access key.');
-      if (!r.ok) throw new Error('Server error (' + r.status + ').');
+      if (r.status === 403) throw new Error('The access key is wrong.');
+      if (!r.ok) throw new Error('The server returned an error (' + r.status + '). Try again in a minute.');
       return r.json();
-    });
+    }, function () { throw new Error('Cannot reach the server. Check the server address and that the server is running.'); });
   }
 
   function render(d) {
-    var ab = $('accounts'); ab.textContent = '';
-    if (!d.accounts.length) { ab.innerHTML = '<tr><td colspan="4" class="empty">No accounts connected yet.</td></tr>'; }
-    d.accounts.forEach(function (a) {
-      var tr = document.createElement('tr');
-      cell(tr, a.account);
-      cell(tr, a.connected ? 'Connected' : 'Not connected', a.connected ? 'b-yes' : 'b-no');
-      cell(tr, a.access_valid ? 'Valid' : 'Refreshed automatically on next post', a.access_valid ? 'b-yes' : 'b-check');
-      var td = document.createElement('td'), btn = document.createElement('button');
-      btn.className = 'ghost'; btn.textContent = 'Disconnect';
-      btn.onclick = function () { disconnect(a.account, btn); };
-      td.appendChild(btn); tr.appendChild(td);
-      ab.appendChild(tr);
-    });
-    var qb = $('queue'); qb.textContent = '';
-    if (!d.queue.length) { qb.innerHTML = '<tr><td colspan="6" class="empty">The queue is empty.</td></tr>'; }
-    d.queue.forEach(function (r) {
-      var tr = document.createElement('tr');
-      cell(tr, r.row);
-      cell(tr, r.status, badgeClass(r.status));
-      cell(tr, r.account);
-      cell(tr, r.hook);
-      cell(tr, r.caption);
-      var t = r.tiktok_status ? r.tiktok_status + (r.privacy ? ' (' + r.privacy + ')' : '') : (r.error || '');
-      var td = cell(tr, t); if (r.error && !r.tiktok_status) td.className = 'small';
-      qb.appendChild(tr);
+    var ab = $('accounts');
+    if (!d.accounts.length) emptyRow(ab, 3, 'No TikTok accounts connected yet. Use the form below.');
+    else {
+      ab.textContent = '';
+      d.accounts.forEach(function (a) {
+        var tr = document.createElement('tr');
+        cell(tr, a.account);
+        cell(tr, a.connected ? 'Connected' : 'Not connected', a.connected ? 'b-ok' : 'b-fail');
+        var td = document.createElement('td'), b = document.createElement('button');
+        b.className = 'link'; b.textContent = 'Disconnect';
+        b.onclick = function () { disconnect(a.account, b); };
+        td.appendChild(b); tr.appendChild(td); ab.appendChild(tr);
+      });
+    }
+    var qb = $('queue'), waiting = 0, busy = 0;
+    if (!d.queue.length) emptyRow(qb, 4, 'The queue is empty. Add a row with status “Ready” to the Google Sheet to publish a video.');
+    else {
+      qb.textContent = '';
+      d.queue.forEach(function (r) {
+        var st = String(r.status || '').toLowerCase();
+        if (st === 'ready') waiting++;
+        if (st === 'processing') busy++;
+        var tr = document.createElement('tr'), s = statusOf(r.status);
+        cell(tr, s[0], s[1]);
+        cell(tr, r.hook || r.topic || ('Row ' + r.row));
+        cell(tr, r.account);
+        cell(tr, resultOf(r)).className = 'small';
+        qb.appendChild(tr);
+      });
+    }
+    $('num1').className = 'num done'; $('num1').textContent = '✓';
+    $('num2').className = 'num' + (d.accounts.length ? ' done' : ''); $('num2').textContent = d.accounts.length ? '✓' : '2';
+    $('btn-run').disabled = !(d.accounts.length && waiting && !busy);
+    $('btn-run').title = !d.accounts.length ? 'Connect a TikTok account first' : (!waiting ? 'No videos are waiting to publish' : '');
+    return { waiting: waiting, busy: busy, accounts: d.accounts.length };
+  }
+
+  function load(quiet) {
+    if (!base() || !$('key').value) { setMsg('conn-msg', 'Enter the server address and the access key.', 'err'); return Promise.resolve(null); }
+    if (!quiet) setMsg('conn-msg', 'Connecting…', '', true);
+    save('exe_server', base()); save('exe_key', $('key').value, true);
+    return api().then(function (d) {
+      connected = true; lock(false);
+      if (!quiet) setMsg('conn-msg', 'Connected to the server.', 'ok');
+      return render(d);
+    }).catch(function (e) {
+      if (!quiet) setMsg('conn-msg', e.message, 'err');
+      return null;
     });
   }
 
-  function load() {
-    if (!base() || !$('key').value) { setMsg('conn-msg', 'Enter the server URL and the access key.', 'err'); return Promise.resolve(); }
-    setMsg('conn-msg', 'Loading...');
-    save('exe_server', base()); save('exe_key', $('key').value, true);
-    return api().then(function (d) { render(d); setMsg('conn-msg', 'Updated ' + new Date(d.server_time).toLocaleTimeString(), 'ok'); })
-      .catch(function (e) { setMsg('conn-msg', e.message === 'Failed to fetch' ? 'Cannot reach the server.' : e.message, 'err'); });
+  function stopPoll() { if (poll) { clearInterval(poll); poll = null; } }
+  function follow() {
+    stopPoll(); var started = Date.now(), seenBusy = false;
+    poll = setInterval(function () {
+      load(true).then(function (s) {
+        if (!s) return;
+        if (s.busy) seenBusy = true;
+        var mins = Math.floor((Date.now() - started) / 60000);
+        if (s.busy || (!seenBusy && Date.now() - started < 25000)) {
+          setMsg('run-msg', 'Publishing… this usually takes up to a minute' + (mins ? ' (' + mins + ' min so far)' : '') + '. You can keep this page open.', 'busy', true);
+        } else {
+          stopPoll(); setMsg('run-msg', 'Done. See the result in the table below.', 'ok');
+        }
+        if (Date.now() - started > 5 * 60000) { stopPoll(); setMsg('run-msg', 'Still working. Press Refresh later to see the result.', 'busy'); }
+      });
+    }, 5000);
   }
 
   function disconnect(name, btn) {
-    if (!window.confirm('Disconnect "' + name + '"? TikTok access for this app will be revoked and stored tokens deleted.')) return;
-    btn.disabled = true; setMsg('conn-msg', 'Disconnecting...');
+    if (!window.confirm('Disconnect "' + name + '"? TikTok access for this app will be revoked and the stored login removed. You can connect it again at any time.')) return;
+    btn.disabled = true; setMsg('acc-msg', 'Disconnecting…', '', true);
     api('disconnect', '&account=' + encodeURIComponent(name)).then(function (r) {
-      return load().then(function () {
-        setMsg('conn-msg', r.revoked ? 'Access revoked. Connect the account again to see the TikTok permission screen.' : 'Account removed from the tool.' + (r.revoke_error ? ' TikTok did not confirm the revocation: ' + r.revoke_error : ''), r.revoked ? 'ok' : 'err');
+      return load(true).then(function () {
+        setMsg('acc-msg', r.revoked ? 'Disconnected. Access was revoked on TikTok.' : 'Removed from this tool.' + (r.revoke_error ? ' TikTok did not confirm the revocation.' : ''), r.revoked ? 'ok' : 'err');
       });
-    }).catch(function (e) { setMsg('conn-msg', e.message, 'err'); btn.disabled = false; });
+    }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); btn.disabled = false; });
   }
 
-  $('btn-connect').onclick = load;
-  $('btn-refresh').onclick = load;
+  $('btn-connect').onclick = function () { load(false); };
+  $('key').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(false); });
+  $('btn-refresh').onclick = function () { setMsg('run-msg', ''); load(false); };
 
   $('btn-run').onclick = function () {
-    var b = $('btn-run'); b.disabled = true; setMsg('run-msg', 'Starting...');
-    api('run').then(function () {
-      setMsg('run-msg', 'Publishing started. A random delay of up to a few minutes is applied; press Refresh to follow the status.', 'ok');
-    }).catch(function (e) { setMsg('run-msg', e.message, 'err'); }).then(function () { b.disabled = false; });
+    var b = $('btn-run'); b.disabled = true; setMsg('run-msg', 'Starting…', 'busy', true);
+    api('run').then(function () { follow(); })
+      .catch(function (e) { setMsg('run-msg', e.message, 'err'); b.disabled = false; });
   };
 
   $('btn-add').onclick = function () {
     var name = $('acc-name').value.trim();
-    if (!base() || !$('key').value) { setMsg('conn-msg', 'Enter the server URL and the access key first.', 'err'); return; }
-    if (!/^[A-Za-z0-9_-]{1,40}$/.test(name)) { setMsg('conn-msg', 'Account name: 1-40 letters, digits, "_" or "-".', 'err'); return; }
-    save('exe_server', base()); save('exe_key', $('key').value, true);
+    if (!connected) { setMsg('acc-msg', 'Complete step 1 first.', 'err'); return; }
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(name)) { setMsg('acc-msg', 'Use 1-40 letters, digits, “_” or “-” for the account name.', 'err'); return; }
+    setMsg('acc-msg', 'Redirecting to TikTok…', '', true);
     window.location.href = base() + '/webhook/tiktok-start?key=' + encodeURIComponent($('key').value) + '&account=' + encodeURIComponent(name);
   };
 
-  if ($('server').value && $('key').value) load();
+  if ($('server').value && $('key').value) load(false);
 })();
 </script>
 </body>
