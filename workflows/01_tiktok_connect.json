@@ -277,8 +277,8 @@
         "operation": "upsert",
         "dataTableId": {
           "__rl": true,
-          "mode": "id",
-          "value": "SSWsIdTjYaqpXDiV"
+          "mode": "name",
+          "value": "tiktok_accounts"
         },
         "filters": {
           "conditions": [

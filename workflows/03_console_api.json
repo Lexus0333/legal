@@ -109,8 +109,8 @@
         "operation": "get",
         "dataTableId": {
           "__rl": true,
-          "mode": "id",
-          "value": "SSWsIdTjYaqpXDiV"
+          "mode": "name",
+          "value": "tiktok_accounts"
         },
         "returnAll": true
       },
@@ -323,8 +323,8 @@
         "operation": "get",
         "dataTableId": {
           "__rl": true,
-          "mode": "id",
-          "value": "SSWsIdTjYaqpXDiV"
+          "mode": "name",
+          "value": "tiktok_accounts"
         },
         "filters": {
           "conditions": [
@@ -366,8 +366,8 @@
         "operation": "deleteRows",
         "dataTableId": {
           "__rl": true,
-          "mode": "id",
-          "value": "SSWsIdTjYaqpXDiV"
+          "mode": "name",
+          "value": "tiktok_accounts"
         },
         "filters": {
           "conditions": [

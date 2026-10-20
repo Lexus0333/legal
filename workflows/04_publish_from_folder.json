@@ -171,8 +171,8 @@
         "operation": "get",
         "dataTableId": {
           "__rl": true,
-          "mode": "id",
-          "value": "SSWsIdTjYaqpXDiV"
+          "mode": "name",
+          "value": "tiktok_accounts"
         },
         "filters": {
           "conditions": [
@@ -216,8 +216,8 @@
         "operation": "update",
         "dataTableId": {
           "__rl": true,
-          "mode": "id",
-          "value": "SSWsIdTjYaqpXDiV"
+          "mode": "name",
+          "value": "tiktok_accounts"
         },
         "filters": {
           "conditions": [
