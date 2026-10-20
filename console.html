@@ -89,9 +89,9 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding
   <section class="card locked" id="card3">
     <div class="head"><div class="num" id="num3">3</div>
       <div><h2>Publish videos</h2>
-      <p class="hint">Put video files into the <code>inbox</code> folder (one subfolder per account, for example <code>inbox/account1</code>) and press Publish. Every video is posted in turn, with a short random pause between posts.</p></div></div>
+      <p class="hint">Put video files into the <code>inbox</code> folder (one subfolder per account, for example <code>inbox/account1</code>; videos can sit in nested folders) and press Publish. Videos are posted in turn, with a short random pause between posts. <span id="cap-note"></span></p></div></div>
     <div class="row" style="margin-bottom:8px">
-      <button id="btn-run" disabled>Publish all videos</button>
+      <button id="btn-run" disabled>Publish videos</button>
       <button id="btn-refresh" class="ghost">Refresh</button>
     </div>
     <p class="msg" id="run-msg"></p>
@@ -178,6 +178,7 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding
 
   function render(d) {
     $('banner').hidden = !d.dry_run;
+    $('cap-note').textContent = d.max_per_run ? 'Up to ' + d.max_per_run + ' video' + (d.max_per_run > 1 ? 's' : '') + ' per press.' : '';
     var ab = $('accounts');
     if (!d.accounts.length) emptyRow(ab, 3, 'No TikTok accounts connected yet. Use the form below.');
     else {
