@@ -9,24 +9,23 @@
 @media (prefers-color-scheme:dark){:root{--bg:#101215;--card:#181b20;--text:#e6e8eb;--muted:#9aa4b2;--line:#2a2f37;--accent:#7ab0ff;--ok:#6ce9a6;--okbg:#0b2a1b;--warn:#fec84b;--warnbg:#2b2108;--err:#fda29b;--errbg:#2d1311;--info:#84caff;--infobg:#0c2338}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
-.wrap{max-width:860px;margin:0 auto;padding:24px 16px 48px}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 16px 48px}
 h1{font-size:22px;margin:0 0 4px}
-.sub{color:var(--muted);margin:0 0 20px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
-.card.locked{opacity:.55}
-.head{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px}
-.num{flex:none;width:28px;height:28px;border-radius:50%;background:var(--infobg);color:var(--info);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px}
-.num.done{background:var(--okbg);color:var(--ok)}
-h2{font-size:16px;margin:0}
-.hint{color:var(--muted);font-size:14px;margin:2px 0 0}
+h2{font-size:16px;margin:0 0 4px}
+h3{font-size:14px;margin:0}
+.sub{color:var(--muted);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.between{justify-content:space-between;align-items:center}
 label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
-input{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
+input,select,textarea{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
+textarea{font-size:14px;line-height:1.5;resize:vertical;min-height:190px}
 .grow{flex:1 1 220px}
 button{font:inherit;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:8px 14px}
 @media (prefers-color-scheme:dark){button{color:#0b1220}}
 button.ghost{background:transparent;color:var(--accent)}
 button.link{border:0;background:none;color:var(--muted);padding:2px 4px;text-decoration:underline;font-size:13px}
+button.small{padding:4px 10px;font-size:13px}
 button:disabled{opacity:.5;cursor:not-allowed}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
@@ -37,72 +36,140 @@ th{color:var(--muted);font-weight:500;font-size:13px}
 .b-ok{background:var(--okbg);color:var(--ok)}
 .b-busy{background:var(--warnbg);color:var(--warn)}
 .b-fail{background:var(--errbg);color:var(--err)}
-.msg{margin:10px 0 0;font-size:14px;min-height:1.2em}
+.msg{margin:8px 0 0;font-size:14px;min-height:1.2em}
 .msg.err{color:var(--err)}.msg.ok{color:var(--ok)}.msg.busy{color:var(--warn)}
 .banner{background:var(--warnbg);color:var(--warn);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:14px}
-.muted{color:var(--muted)}
-.small{font-size:13px}
+.muted{color:var(--muted)}.small{font-size:13px}
 .empty{color:var(--muted);padding:10px 0}
-.spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tab{border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);border-radius:0;padding:10px 14px;white-space:nowrap}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.acc{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--card)}
+.big{font-size:34px;font-weight:700;line-height:1.1}
+.stats{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0}
+.stat b{display:block;font-size:18px}
+.steps{display:flex;gap:4px;margin:10px 0 6px}
+.step{flex:1;text-align:center;font-size:11px;color:var(--muted)}
+.step i{display:block;height:6px;border-radius:3px;background:var(--line);margin-bottom:3px}
+.step.done i{background:var(--ok)}.step.done{color:var(--ok)}
+.warn{font-size:13px;color:var(--warn);margin:4px 0 0}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.copy{display:flex;gap:6px;align-items:center;font-size:13px;margin-top:8px;word-break:break-all}
+code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:13px}
 footer{color:var(--muted);font-size:13px;margin-top:24px}
 a{color:var(--accent)}
-details summary{cursor:pointer;color:var(--accent);font-size:14px}
-code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:13px}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>EXE Agency Publisher</h1>
-  <p class="sub">Publish our own videos to our own TikTok accounts in three steps. Internal tool, not offered to the public.</p>
+  <p class="sub">Publish our own videos to our own TikTok accounts. Internal tool, not offered to the public.</p>
 
-  <div class="banner" id="banner" hidden>Test mode is on: videos are processed, but nothing is sent to TikTok.</div>
-
-  <section class="card" id="card1">
-    <div class="head"><div class="num" id="num1">1</div>
-      <div><h2>Connect to the publishing server</h2>
-      <p class="hint">Enter the server address and your access key (provided by the administrator).</p></div></div>
-    <div class="row">
-      <div class="grow"><label for="server">Server address</label><input id="server" placeholder="https://n8n.example.com" autocomplete="off"></div>
-      <div class="grow"><label for="key">Access key</label><input id="key" type="password" autocomplete="off"></div>
-      <button id="btn-connect">Connect</button>
+  <section class="card" id="conn-card">
+    <div id="conn-form">
+      <h2>Connect to the publishing server</h2>
+      <p class="muted small" style="margin:0 0 10px">Enter the server address and your access key (provided by the administrator). The key stays in this browser tab only and is never stored on this site.</p>
+      <div class="row">
+        <div class="grow"><label for="server">Server address</label><input id="server" placeholder="https://n8n.example.com" autocomplete="off"></div>
+        <div class="grow"><label for="key">Access key</label><input id="key" type="password" autocomplete="off"></div>
+        <button id="btn-connect">Connect</button>
+      </div>
+    </div>
+    <div id="conn-bar" class="row between" hidden>
+      <span class="small">Connected to <b id="conn-host"></b></span>
+      <button class="link" id="btn-forget">Change server</button>
     </div>
     <p class="msg" id="conn-msg"></p>
-    <p class="small muted" style="margin:6px 0 0">The key stays in this browser tab only and is never stored on this site.</p>
   </section>
 
-  <section class="card locked" id="card2">
-    <div class="head"><div class="num" id="num2">2</div>
-      <div><h2>Connect a TikTok account</h2>
-      <p class="hint">You will be sent to TikTok to sign in and approve access (basic profile info and posting of videos), then brought back here.</p></div></div>
-    <div class="table-scroll"><table>
-      <thead><tr><th>Account</th><th>Status</th><th></th></tr></thead>
-      <tbody id="accounts"><tr><td colspan="3" class="empty">Complete step 1 to see your accounts.</td></tr></tbody>
-    </table></div>
-    <div class="row" style="margin-top:14px">
-      <div class="grow"><label for="acc-name">Account name (a label you choose; it is also the name of the video folder)</label><input id="acc-name" value="account1" autocomplete="off"></div>
-      <button id="btn-add">Connect TikTok account</button>
-    </div>
-    <p class="msg" id="acc-msg"></p>
-  </section>
+  <div id="app" hidden>
+    <div class="banner" id="banner" hidden>Test mode is on: videos are processed, but nothing is sent to TikTok.</div>
 
-  <section class="card locked" id="card3">
-    <div class="head"><div class="num" id="num3">3</div>
-      <div><h2>Publish videos</h2>
-      <p class="hint">Put video files into the <code>inbox</code> folder (one subfolder per account, for example <code>inbox/account1</code>; videos can sit in nested folders) and press Publish. Videos are posted in turn, with a short random pause between posts. <span id="cap-note"></span></p></div></div>
-    <div class="row" style="margin-bottom:8px">
-      <button id="btn-run" disabled>Publish videos</button>
-      <button id="btn-refresh" class="ghost">Refresh</button>
-    </div>
-    <p class="msg" id="run-msg"></p>
-    <div class="table-scroll"><table>
-      <thead><tr><th>Status</th><th>Video</th><th>Account</th><th>Result</th></tr></thead>
-      <tbody id="queue"><tr><td colspan="4" class="empty">Complete step 1 to see the queue.</td></tr></tbody>
-    </table></div>
-    <details style="margin-top:12px"><summary>How does publishing work?</summary>
-      <p class="small muted">For each video the tool takes a few frames and writes a short on-screen hook and a caption with hashtags (with an AI assistant when it is configured; otherwise from an optional text file with the same name as the video, or from the file name). The hook is added to the first seconds of the video and the file is uploaded through the TikTok Content Posting API (Direct Post) to the connected account. Published videos move to the <code>done</code> folder, failed ones to <code>failed</code>. Until the app is approved by TikTok, posts are private and visible only to the account owner. AI-generated videos are labelled as AI-generated.</p>
-    </details>
-  </section>
+    <section class="card">
+      <div class="row between">
+        <div>
+          <h2>Publish</h2>
+          <p class="muted small" style="margin:0">Videos from the <code>inbox</code> folder are posted in turn with a short random pause. <span id="cap-note"></span></p>
+        </div>
+        <div class="row"><button id="btn-run" disabled>Publish videos</button><button id="btn-refresh" class="ghost">Refresh</button></div>
+      </div>
+      <p class="msg" id="run-msg"></p>
+    </section>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab on" data-tab="dash">Overview</button>
+      <button class="tab" data-tab="videos">Videos</button>
+      <button class="tab" data-tab="texts">Texts</button>
+      <button class="tab" data-tab="accounts">Accounts</button>
+    </nav>
+
+    <!-- OVERVIEW -->
+    <section data-pane="dash">
+      <div class="card" id="sum"></div>
+      <div class="grid" id="acc-grid"></div>
+      <div class="card" style="margin-top:16px">
+        <h2>Queue</h2>
+        <p class="muted small" style="margin:0 0 8px">Next videos waiting in the inbox and the latest results.</p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Status</th><th>Video</th><th>Account</th><th>Result</th></tr></thead>
+          <tbody id="queue"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- VIDEOS -->
+    <section data-pane="videos" hidden>
+      <div class="card">
+        <div class="row" style="margin-bottom:10px">
+          <div><label for="f-acc">Account</label><select id="f-acc"><option value="">All accounts</option></select></div>
+          <div><label for="f-st">Status</label><select id="f-st"><option value="">All</option><option value="Posted">Published</option><option value="Error">Failed</option><option value="Check">Needs a check</option><option value="Processing">Publishing</option></select></div>
+        </div>
+        <div class="table-scroll"><table>
+          <thead><tr id="v-head"></tr></thead>
+          <tbody id="v-body"></tbody>
+        </table></div>
+        <p class="msg"><button class="ghost small" id="v-more" hidden>Show more</button></p>
+      </div>
+    </section>
+
+    <!-- TEXTS -->
+    <section data-pane="texts" hidden>
+      <div class="card">
+        <div class="row between">
+          <div class="grow" style="max-width:340px"><label for="t-acc">Texts for</label><select id="t-acc"></select></div>
+          <p class="muted small" style="margin:0;max-width:520px">Each video gets one random hook, one random caption and a few random hashtags from these lists. An account can have its own lists; without them the default lists are used.</p>
+        </div>
+        <p class="msg" id="t-msg"></p>
+      </div>
+      <div class="cols" id="t-cols"></div>
+    </section>
+
+    <!-- ACCOUNTS -->
+    <section data-pane="accounts" hidden>
+      <div class="card">
+        <h2>Accounts</h2>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Account</th><th>Onboarding</th><th>Link in bio</th><th></th></tr></thead>
+          <tbody id="acc-body"></tbody>
+        </table></div>
+        <p class="msg" id="acc-msg"></p>
+      </div>
+      <div class="card">
+        <h2>Add an account</h2>
+        <p class="muted small" style="margin:0 0 10px">Create the account in TikTok yourself, then add it here: this creates its video folder and its own text lists. After that, connect it so the tool may post on its behalf.</p>
+        <div class="row">
+          <div class="grow"><label for="acc-name">Account name (a label you choose; also the folder name)</label><input id="acc-name" placeholder="account2" autocomplete="off"></div>
+          <button id="btn-add-acc" class="ghost">Add account</button>
+          <button id="btn-add">Connect TikTok account</button>
+        </div>
+        <p class="small muted" style="margin:8px 0 0">“Connect” sends you to TikTok to sign in and approve access (basic profile info and posting of videos), then brings you back here.</p>
+      </div>
+    </section>
+  </div>
 
   <footer>
     <a href="index.html">About</a> · <a href="privacy.html">Privacy Policy</a> · <a href="terms.html">Terms of Service</a>
@@ -112,174 +179,342 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  function get(k, session) { try { return (session ? sessionStorage : localStorage).getItem(k) || ''; } catch (e) { return ''; } }
-  function save(k, v, session) { try { (session ? sessionStorage : localStorage).setItem(k, v); } catch (e) {} }
-
-  var connected = false, poll = null;
-  $('server').value = get('exe_server');
-  $('key').value = get('exe_key', true);
-
-  function base() { return $('server').value.trim().replace(/\/+$/, ''); }
+  function get(k, s) { try { return (s ? sessionStorage : localStorage).getItem(k) || ''; } catch (e) { return ''; } }
+  function save(k, v, s) { try { (s ? sessionStorage : localStorage).setItem(k, v); } catch (e) {} }
+  function h(tag, props) {
+    var el = document.createElement(tag), kids = Array.prototype.slice.call(arguments, 2);
+    Object.keys(props || {}).forEach(function (k) {
+      if (k === 'class') el.className = props[k]; else if (k === 'text') el.textContent = props[k]; else if (k.slice(0, 2) === 'on') el[k] = props[k]; else el.setAttribute(k, props[k]);
+    });
+    kids.forEach(function (c) { if (c == null) return; el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return el;
+  }
+  function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
   function setMsg(id, text, cls, spin) {
-    var el = $(id); el.textContent = '';
-    if (spin) { var s = document.createElement('span'); s.className = 'spin'; el.appendChild(s); }
-    el.appendChild(document.createTextNode(text || ''));
-    el.className = 'msg' + (cls ? ' ' + cls : '');
+    var el = $(id); clear(el);
+    if (spin) el.appendChild(h('span', { class: 'spin' }));
+    el.appendChild(document.createTextNode(text || '')); el.className = 'msg' + (cls ? ' ' + cls : '');
   }
-  function cell(tr, text, cls) {
-    var td = document.createElement('td');
-    if (cls) { var b = document.createElement('span'); b.className = 'badge ' + cls; b.textContent = text; td.appendChild(b); }
-    else td.textContent = text;
-    tr.appendChild(td); return td;
-  }
-  function emptyRow(tbody, cols, text) {
-    tbody.textContent = '';
-    var tr = document.createElement('tr'), td = document.createElement('td');
-    td.colSpan = cols; td.className = 'empty'; td.textContent = text; tr.appendChild(td); tbody.appendChild(tr);
+  function badge(text, cls) { return h('span', { class: 'badge ' + cls, text: text }); }
+  function fmt(iso) { if (!iso) return ''; var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }
+  function ago(iso) {
+    if (!iso) return 'never'; var s = (Date.now() - Date.parse(iso)) / 1000;
+    if (s < 90) return 'just now'; if (s < 3600) return Math.round(s / 60) + ' min ago'; if (s < 86400) return Math.round(s / 3600) + ' h ago'; return Math.round(s / 86400) + ' d ago';
   }
 
-  var STATUS = {
-    ready: ['Waiting to publish', 'b-wait'], processing: ['Publishing…', 'b-busy'], posted: ['Published', 'b-ok'],
-    dryrun: ['Test run', 'b-wait'], check: ['Needs a manual check', 'b-busy'], error: ['Failed', 'b-fail']
-  };
-  function statusOf(s) { return STATUS[String(s || '').toLowerCase()] || [s || '-', 'b-wait']; }
-  function resultOf(r) {
-    var s = String(r.status || '').toLowerCase(), text = '';
-    if (s === 'ready') return 'Waiting in the inbox folder.';
-    if (s === 'posted') text = 'Posted to TikTok' + (String(r.privacy).indexOf('SELF_ONLY') === 0 ? ' as a private video (only you can see it).' : '.');
-    else if (s === 'dryrun') text = 'Test run: everything was prepared, nothing was sent to TikTok.';
-    else if (s === 'error') return friendlyError(r.error);
-    else if (s === 'check') text = 'TikTok has not confirmed the post yet. Check the account before publishing again.';
-    else if (s === 'processing') return 'In progress…';
-    if (r.hook) text += ' Hook: “' + r.hook + '”.';
-    if (r.caption) text += ' Caption: ' + r.caption;
-    return text;
+  var S = { overview: null, posts: [], vShown: 50, connected: false, poll: null, texts: null, textsAcc: null };
+  $('server').value = get('exe_server'); $('key').value = get('exe_key', true);
+  function base() { return $('server').value.trim().replace(/\/+$/, ''); }
+
+  // ---------- API ----------
+  function check(r) {
+    if (r.status === 403) throw new Error('The access key is wrong.');
+    if (!r.ok) { return r.json().catch(function () { return {}; }).then(function (j) { throw new Error(j.error || 'The server returned an error (' + r.status + ').'); }); }
+    return r.json();
   }
+  function net() { throw new Error('Cannot reach the server. Check the server address and that the server is running.'); }
+  function get_(ep, params) {
+    var q = '?key=' + encodeURIComponent($('key').value);
+    Object.keys(params || {}).forEach(function (k) { q += '&' + k + '=' + encodeURIComponent(params[k]); });
+    return fetch(base() + '/webhook/' + ep + q, { headers: { 'ngrok-skip-browser-warning': '1' } }).then(check, net);
+  }
+  function post_(body) {
+    body.key = $('key').value;
+    return fetch(base() + '/webhook/panel-save', { method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' }, body: JSON.stringify(body) }).then(check, net);
+  }
+
+  // ---------- connect ----------
+  function connect(quiet) {
+    if (!base() || !$('key').value) { setMsg('conn-msg', 'Enter the server address and the access key.', 'err'); return Promise.resolve(); }
+    if (!quiet) setMsg('conn-msg', 'Connecting…', '', true);
+    save('exe_server', base()); save('exe_key', $('key').value, true);
+    return refreshAll(true).then(function () {
+      S.connected = true; $('conn-form').hidden = true; $('conn-bar').hidden = false; $('app').hidden = false;
+      try { $('conn-host').textContent = new URL(base()).host; } catch (e) { $('conn-host').textContent = base(); }
+      setMsg('conn-msg', '');
+    }).catch(function (e) { setMsg('conn-msg', e.message, 'err'); });
+  }
+  $('btn-connect').onclick = function () { connect(false); };
+  $('key').addEventListener('keydown', function (e) { if (e.key === 'Enter') connect(false); });
+  $('btn-forget').onclick = function () { S.connected = false; $('app').hidden = true; $('conn-form').hidden = false; $('conn-bar').hidden = true; stopPoll(); };
+
+  function refreshAll(quiet) {
+    return Promise.all([get_('panel-api', { action: 'overview' }), get_('console-api'), get_('panel-api', { action: 'posts' })]).then(function (r) {
+      S.overview = r[0]; S.queue = r[1]; S.posts = r[2].posts || [];
+      renderAll();
+    });
+  }
+  $('btn-refresh').onclick = function () { setMsg('run-msg', ''); refreshAll().catch(function (e) { setMsg('run-msg', e.message, 'err'); }); };
+
+  // ---------- tabs ----------
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function (t) { t.onclick = function () { showTab(t.getAttribute('data-tab')); }; });
+  function showTab(name) {
+    tabs.forEach(function (t) { t.className = 'tab' + (t.getAttribute('data-tab') === name ? ' on' : ''); });
+    document.querySelectorAll('[data-pane]').forEach(function (p) { p.hidden = p.getAttribute('data-pane') !== name; });
+    if (name === 'texts') loadTexts();
+  }
+
+  // ---------- render ----------
+  var STATUS = { ready: ['Waiting to publish', 'b-wait'], processing: ['Publishing…', 'b-busy'], posted: ['Published', 'b-ok'], dryrun: ['Test run', 'b-wait'], check: ['Needs a manual check', 'b-busy'], error: ['Failed', 'b-fail'] };
+  function statusOf(s) { return STATUS[String(s || '').toLowerCase()] || [s || '-', 'b-wait']; }
   function friendlyError(e) {
     e = String(e || '');
-    if (/not connected/i.test(e)) return 'This account is not connected. Complete step 2. The video stays in the inbox.';
-    if (/private accounts|unaudited/i.test(e)) return 'TikTok allows only private accounts until the app is approved. Make the TikTok account private. The video stays in the inbox.';
+    if (/not connected/i.test(e)) return 'This account is not connected. The video stays in the inbox.';
+    if (/private accounts|unaudited/i.test(e)) return 'TikTok allows only private accounts until the app is approved. Make the TikTok account private.';
     if (/interrupted/i.test(e)) return 'The run was interrupted. The video was not published.';
     return e ? 'Something went wrong: ' + e.slice(0, 140) : 'Something went wrong.';
   }
-
-  function lock(on) {
-    ['card2', 'card3'].forEach(function (id) { $(id).className = 'card' + (on ? ' locked' : ''); });
+  function resultOf(r) {
+    var s = String(r.status || '').toLowerCase(), t = '';
+    if (s === 'ready') return 'Waiting in the inbox folder.';
+    if (s === 'error') return friendlyError(r.error);
+    if (s === 'processing') return 'In progress…';
+    if (s === 'check') t = 'TikTok has not confirmed the post yet. Check the account before publishing again.';
+    else if (s === 'posted') t = 'Posted to TikTok' + (String(r.privacy).indexOf('SELF_ONLY') === 0 ? ' as a private video.' : '.');
+    else if (s === 'dryrun') t = 'Test run: nothing was sent to TikTok.';
+    return t;
   }
 
-  function api(action, extra) {
-    var url = base() + '/webhook/console-api?key=' + encodeURIComponent($('key').value) + (action ? '&action=' + action : '') + (extra || '');
-    return fetch(url, { headers: { 'ngrok-skip-browser-warning': '1' } }).then(function (r) {
-      if (r.status === 403) throw new Error('The access key is wrong.');
-      if (!r.ok) throw new Error('The server returned an error (' + r.status + '). Try again in a minute.');
-      return r.json();
-    }, function () { throw new Error('Cannot reach the server. Check the server address and that the server is running.'); });
+  function renderAll() {
+    var o = S.overview;
+    $('banner').hidden = !o.dry_run;
+    $('cap-note').textContent = o.max_per_run ? 'Up to ' + o.max_per_run + ' video' + (o.max_per_run > 1 ? 's' : '') + ' per press.' : '';
+    renderDash(); renderQueue(); renderVideos(); renderAccounts(); fillAccountSelects();
+    var q = queueStats();
+    var anyConn = o.accounts.some(function (a) { return a.connected; });
+    $('btn-run').disabled = !(anyConn && q.waiting && !q.busy);
+    $('btn-run').title = !anyConn ? 'Connect a TikTok account first' : (!q.waiting ? 'There are no videos in the inbox folder' : '');
+    return q;
+  }
+  function queueStats() {
+    var w = 0, b = 0, lastErr = null;
+    (S.queue.queue || []).forEach(function (r) {
+      var s = String(r.status || '').toLowerCase();
+      if (s === 'ready') w++; if (s === 'processing') b++; if (s === 'error' && !lastErr) lastErr = r;
+    });
+    return { waiting: w, busy: b, lastErr: lastErr };
   }
 
-  function render(d) {
-    $('banner').hidden = !d.dry_run;
-    $('cap-note').textContent = d.max_per_run ? 'Up to ' + d.max_per_run + ' video' + (d.max_per_run > 1 ? 's' : '') + ' per press.' : '';
-    var ab = $('accounts');
-    if (!d.accounts.length) emptyRow(ab, 3, 'No TikTok accounts connected yet. Use the form below.');
-    else {
-      ab.textContent = '';
-      d.accounts.forEach(function (a) {
-        var tr = document.createElement('tr');
-        cell(tr, a.account);
-        cell(tr, a.connected ? 'Connected' : 'Not connected', a.connected ? 'b-ok' : 'b-fail');
-        var td = document.createElement('td'), b = document.createElement('button');
-        b.className = 'link'; b.textContent = 'Disconnect';
-        b.onclick = function () { disconnect(a.account, b); };
-        td.appendChild(b); tr.appendChild(td); ab.appendChild(tr);
-      });
+  function steps(a) {
+    return [
+      { l: 'Added', d: !!(a.created_at || a.stock || a.published || a.connected), t: a.created_at },
+      { l: 'Connected', d: a.connected, t: a.connected_at },
+      { l: 'Videos', d: a.stock > 0 || a.published > 0 },
+      { l: 'First post', d: !!a.first_post_at, t: a.first_post_at },
+      { l: 'Active', d: a.published_7d > 0 }
+    ];
+  }
+  function stepper(a) {
+    var box = h('div', { class: 'steps' });
+    steps(a).forEach(function (s) { box.appendChild(h('div', { class: 'step' + (s.d ? ' done' : ''), title: s.t ? fmt(s.t) : '' }, h('i'), s.l)); });
+    return box;
+  }
+  function warnings(a) {
+    var w = [];
+    if (!a.connected && a.stock > 0) w.push('Not connected: ' + a.stock + ' video(s) are waiting but cannot be published.');
+    if (a.connected && a.refresh_expires_at) {
+      var days = Math.round((a.refresh_expires_at - Date.now()) / 86400000);
+      if (days < 30) w.push(days < 0 ? 'The TikTok login expired. Reconnect the account.' : 'The TikTok login expires in ' + days + ' days. Reconnect the account.');
     }
-    var qb = $('queue'), waiting = 0, busy = 0, lastErr = null;
-    if (!d.queue.length) emptyRow(qb, 4, 'The queue is empty. Put video files into the inbox folder to publish them.');
-    else {
-      qb.textContent = '';
-      d.queue.forEach(function (r) {
-        var st = String(r.status || '').toLowerCase();
-        if (st === 'ready') waiting++;
-        if (st === 'processing') busy++;
-        if (st === 'error' && !lastErr) lastErr = r;
-        var tr = document.createElement('tr'), s = statusOf(r.status);
-        cell(tr, s[0], s[1]);
-        cell(tr, r.file || '');
-        cell(tr, r.account);
-        cell(tr, resultOf(r)).className = 'small';
-        qb.appendChild(tr);
-      });
-    }
-    $('num1').className = 'num done'; $('num1').textContent = '✓';
-    $('num2').className = 'num' + (d.accounts.length ? ' done' : ''); $('num2').textContent = d.accounts.length ? '✓' : '2';
-    $('btn-run').disabled = !(d.accounts.length && waiting && !busy);
-    $('btn-run').title = !d.accounts.length ? 'Connect a TikTok account first' : (!waiting ? 'There are no videos in the inbox folder' : '');
-    return { waiting: waiting, busy: busy, accounts: d.accounts.length, lastErr: lastErr };
+    if (a.connected && a.stock === 0) w.push('No videos in stock.');
+    else if (a.connected && a.stock < 5) w.push('Low stock: ' + a.stock + ' video(s) left.');
+    if (a.failed > 0) w.push(a.failed + ' video(s) failed. See the Videos tab.');
+    return w;
   }
 
-  function load(quiet) {
-    if (!base() || !$('key').value) { setMsg('conn-msg', 'Enter the server address and the access key.', 'err'); return Promise.resolve(null); }
-    if (!quiet) setMsg('conn-msg', 'Connecting…', '', true);
-    save('exe_server', base()); save('exe_key', $('key').value, true);
-    return api().then(function (d) {
-      connected = true; lock(false);
-      if (!quiet) setMsg('conn-msg', 'Connected to the server.', 'ok');
-      return render(d);
-    }).catch(function (e) {
-      if (!quiet) setMsg('conn-msg', e.message, 'err');
-      return null;
+  function renderDash() {
+    var o = S.overview, stock = 0, p7 = 0, conn = 0;
+    o.accounts.forEach(function (a) { stock += a.stock; p7 += a.published_7d; if (a.connected) conn++; });
+    var sum = $('sum'); clear(sum);
+    sum.appendChild(h('div', { class: 'stats' },
+      h('div', { class: 'stat' }, h('b', { text: String(stock) }), 'videos in stock'),
+      h('div', { class: 'stat' }, h('b', { text: String(p7) }), 'published in 7 days'),
+      h('div', { class: 'stat' }, h('b', { text: conn + ' / ' + o.accounts.length }), 'accounts connected')));
+    var grid = $('acc-grid'); clear(grid);
+    if (!o.accounts.length) { grid.appendChild(h('p', { class: 'empty', text: 'No accounts yet. Add one in the Accounts tab.' })); return; }
+    o.accounts.forEach(function (a) {
+      var card = h('div', { class: 'acc' },
+        h('div', { class: 'row between' }, h('h3', { text: a.account }), badge(a.connected ? 'Connected' : 'Not connected', a.connected ? 'b-ok' : 'b-fail')),
+        h('div', { class: 'row', style: 'align-items:baseline;margin-top:8px' }, h('span', { class: 'big', text: String(a.stock) }), h('span', { class: 'muted', text: 'videos in stock' })),
+        h('div', { class: 'stats' },
+          h('div', { class: 'stat' }, h('b', { text: String(a.published) }), 'published'),
+          h('div', { class: 'stat' }, h('b', { text: String(a.published_7d) }), 'last 7 days'),
+          h('div', { class: 'stat' }, h('b', { text: String(a.failed) }), 'failed')),
+        h('div', { class: 'small muted', text: 'Last post: ' + ago(a.last_post_at) }),
+        stepper(a));
+      warnings(a).forEach(function (w) { card.appendChild(h('div', { class: 'warn', text: w })); });
+      if (a.bio_link) card.appendChild(linkRow(a));
+      grid.appendChild(card);
+    });
+  }
+  function copyText(text, btn) {
+    var done = function () { var t = btn.textContent; btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = t; }, 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done); else done();
+  }
+  function linkRow(a) {
+    var b = h('button', { class: 'ghost small', text: 'Copy' }); b.onclick = function () { copyText(a.bio_link, b); };
+    return h('div', { class: 'copy' }, a.bio_set_label || '', h('a', { href: a.bio_link, target: '_blank', rel: 'noopener', text: a.bio_link }), b,
+      a.bio_link_set ? badge('set in TikTok', 'b-ok') : badge('not set yet', 'b-busy'));
+  }
+
+  function renderQueue() {
+    var qb = $('queue'); clear(qb);
+    var rows = (S.queue.queue || []);
+    if (!rows.length) { qb.appendChild(h('tr', null, h('td', { colspan: '4', class: 'empty', text: 'The queue is empty. Put video files into the inbox folder to publish them.' }))); return; }
+    rows.forEach(function (r) {
+      var s = statusOf(r.status);
+      qb.appendChild(h('tr', null, h('td', null, badge(s[0], s[1])), h('td', { text: r.file || '' }), h('td', { text: r.account || '' }), h('td', { class: 'small', text: resultOf(r) })));
     });
   }
 
-  function stopPoll() { if (poll) { clearInterval(poll); poll = null; } }
-  function follow() {
-    stopPoll(); var started = Date.now(), seenBusy = false;
-    poll = setInterval(function () {
-      load(true).then(function (s) {
-        if (!s) return;
-        var secs = (Date.now() - started) / 1000;
-        if (s.busy) seenBusy = true;
-        if (s.busy) setMsg('run-msg', 'Publishing a video… this usually takes a minute or two. You can keep this page open.', 'busy', true);
-        else if (!seenBusy && secs < 40) setMsg('run-msg', 'Starting…', 'busy', true);
-        else if (s.waiting) {
-          var err = s.lastErr && Date.parse(s.lastErr.processed_at) > started - 5000;
-          if (err) { stopPoll(); setMsg('run-msg', 'Stopped: ' + friendlyError(s.lastErr.error), 'err'); }
-          else setMsg('run-msg', 'Waiting before the next video (a short pause between posts is normal)…', 'busy', true);
-        } else { stopPoll(); setMsg('run-msg', 'Done. See the results in the table below.', 'ok'); }
-        if (Date.now() - started > 90 * 60000) { stopPoll(); setMsg('run-msg', 'Still working. Press Refresh later to see the result.', 'busy'); }
-      });
-    }, 8000);
+  function fillAccountSelects() {
+    var names = S.overview.accounts.map(function (a) { return a.account; });
+    var f = $('f-acc'), cur = f.value; clear(f); f.appendChild(h('option', { value: '', text: 'All accounts' }));
+    names.forEach(function (n) { f.appendChild(h('option', { value: n, text: n })); }); f.value = names.indexOf(cur) >= 0 ? cur : '';
+    var t = $('t-acc'), tc = t.value; clear(t); t.appendChild(h('option', { value: '', text: 'Default (all accounts)' }));
+    names.forEach(function (n) { t.appendChild(h('option', { value: n, text: n })); }); t.value = (tc === '' || names.indexOf(tc) >= 0) ? tc : '';
   }
 
+  function renderVideos() {
+    var statsOn = S.overview.stats_enabled;
+    var head = $('v-head'); clear(head);
+    ['Date', 'Account', 'Video', 'Status', 'Hook', 'Caption', 'Result'].concat(statsOn ? ['Views', 'Likes', 'Comments', 'Shares'] : []).forEach(function (t) { head.appendChild(h('th', { text: t })); });
+    var fa = $('f-acc').value, fs = $('f-st').value;
+    var rows = S.posts.filter(function (p) { return (!fa || p.account === fa) && (!fs || p.status === fs); });
+    var body = $('v-body'); clear(body);
+    if (!rows.length) body.appendChild(h('tr', null, h('td', { colspan: '11', class: 'empty', text: 'No videos match. Published videos appear here.' })));
+    rows.slice(0, S.vShown).forEach(function (p) {
+      var s = statusOf(p.status), m = p.metrics || {};
+      var tr = h('tr', null, h('td', { class: 'small', text: fmt(p.at) }), h('td', { text: p.account }), h('td', { text: (p.rel ? p.rel + ' / ' : '') + p.file }), h('td', null, badge(s[0], s[1])),
+        h('td', { class: 'small', text: p.hook }), h('td', { class: 'small', text: p.caption }), h('td', { class: 'small', text: resultOf(p) }));
+      if (statsOn) ['views', 'likes', 'comments', 'shares'].forEach(function (k) { tr.appendChild(h('td', { text: m[k] != null ? String(m[k]) : '-' })); });
+      body.appendChild(tr);
+    });
+    $('v-more').hidden = rows.length <= S.vShown;
+  }
+  $('f-acc').onchange = $('f-st').onchange = function () { S.vShown = 50; renderVideos(); };
+  $('v-more').onclick = function () { S.vShown += 50; renderVideos(); };
+
+  // ---------- accounts tab ----------
+  function renderAccounts() {
+    var tb = $('acc-body'); clear(tb);
+    if (!S.overview.accounts.length) tb.appendChild(h('tr', null, h('td', { colspan: '4', class: 'empty', text: 'No accounts yet.' })));
+    S.overview.accounts.forEach(function (a) {
+      var link = h('input', { value: a.bio_link || '', placeholder: 'https://…', 'aria-label': 'Link in bio for ' + a.account });
+      var set = h('input', { type: 'checkbox', style: 'width:auto' }); set.checked = !!a.bio_link_set;
+      var saveBtn = h('button', { class: 'ghost small', text: 'Save' });
+      saveBtn.onclick = function () {
+        saveBtn.disabled = true; setMsg('acc-msg', 'Saving…', '', true);
+        post_({ action: 'saveAccount', account: a.account, bio_link: link.value, bio_link_set: set.checked }).then(function () { return refreshAll(); })
+          .then(function () { setMsg('acc-msg', 'Saved.', 'ok'); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); }).then(function () { saveBtn.disabled = false; });
+      };
+      var copyBtn = h('button', { class: 'ghost small', text: 'Copy' }); copyBtn.onclick = function () { copyText(link.value, copyBtn); };
+      var dis = h('button', { class: 'link', text: 'Disconnect' }); dis.disabled = !a.connected;
+      dis.onclick = function () { disconnect(a.account, dis); };
+      var re = h('button', { class: 'link', text: a.connected ? 'Reconnect' : 'Connect' }); re.onclick = function () { startConnect(a.account); };
+      var st = steps(a);
+      var onb = h('div', null, stepper(a), h('div', { class: 'small muted', text: st.filter(function (x) { return x.d && x.t; }).map(function (x) { return x.l + ': ' + fmt(x.t); }).join(' · ') }));
+      warnings(a).forEach(function (w) { onb.appendChild(h('div', { class: 'warn', text: w })); });
+      tb.appendChild(h('tr', null,
+        h('td', null, h('b', { text: a.account }), h('div', { class: 'small muted', text: a.stock + ' in stock' })),
+        h('td', { style: 'min-width:240px' }, onb),
+        h('td', { style: 'min-width:240px' }, h('div', { class: 'row', style: 'flex-wrap:nowrap' }, link, copyBtn), h('label', { class: 'small', style: 'display:flex;gap:6px;align-items:center;margin:6px 0 0' }, set, 'Already set in the TikTok profile')),
+        h('td', { style: 'white-space:nowrap' }, h('div', null, saveBtn), h('div', null, re), h('div', null, dis))));
+    });
+  }
   function disconnect(name, btn) {
     if (!window.confirm('Disconnect "' + name + '"? TikTok access for this app will be revoked and the stored login removed. You can connect it again at any time.')) return;
     btn.disabled = true; setMsg('acc-msg', 'Disconnecting…', '', true);
-    api('disconnect', '&account=' + encodeURIComponent(name)).then(function (r) {
-      return load(true).then(function () {
+    get_('console-api', { action: 'disconnect', account: name }).then(function (r) {
+      return refreshAll().then(function () {
         setMsg('acc-msg', r.revoked ? 'Disconnected. Access was revoked on TikTok.' : 'Removed from this tool.' + (r.revoke_error ? ' TikTok did not confirm the revocation.' : ''), r.revoked ? 'ok' : 'err');
       });
     }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); btn.disabled = false; });
   }
-
-  $('btn-connect').onclick = function () { load(false); };
-  $('key').addEventListener('keydown', function (e) { if (e.key === 'Enter') load(false); });
-  $('btn-refresh').onclick = function () { setMsg('run-msg', ''); load(false); };
-
-  $('btn-run').onclick = function () {
-    var b = $('btn-run'); b.disabled = true; setMsg('run-msg', 'Starting…', 'busy', true);
-    api('run').then(function () { follow(); })
-      .catch(function (e) { setMsg('run-msg', e.message, 'err'); b.disabled = false; });
-  };
-
-  $('btn-add').onclick = function () {
-    var name = $('acc-name').value.trim();
-    if (!connected) { setMsg('acc-msg', 'Complete step 1 first.', 'err'); return; }
+  function startConnect(name) {
     if (!/^[A-Za-z0-9_-]{1,40}$/.test(name)) { setMsg('acc-msg', 'Use 1-40 letters, digits, “_” or “-” for the account name.', 'err'); return; }
     setMsg('acc-msg', 'Redirecting to TikTok…', '', true);
     window.location.href = base() + '/webhook/tiktok-start?key=' + encodeURIComponent($('key').value) + '&account=' + encodeURIComponent(name);
+  }
+  $('btn-add').onclick = function () { startConnect($('acc-name').value.trim()); };
+  $('btn-add-acc').onclick = function () {
+    var name = $('acc-name').value.trim(); var b = $('btn-add-acc'); b.disabled = true; setMsg('acc-msg', 'Adding…', '', true);
+    post_({ action: 'addAccount', account: name }).then(function () { return refreshAll(); })
+      .then(function () { setMsg('acc-msg', 'Account added. Now press “Connect TikTok account”.', 'ok'); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); }).then(function () { b.disabled = false; });
   };
 
-  if ($('server').value && $('key').value) load(false);
+  // ---------- texts tab ----------
+  var TYPES = [
+    { k: 'hooks', title: 'Hooks', hint: 'Short text shown on the video during the first seconds. One per line, up to 120 characters, no emoji. An empty list means no text on the video.' },
+    { k: 'captions', title: 'Captions', hint: 'One caption per line (up to 300 characters). One random caption is used for each video.' },
+    { k: 'hashtags', title: 'Hashtags', hint: 'One word per line, without #. A few random hashtags are added to each caption.' }
+  ];
+  var ed = {};
+  function loadTexts() {
+    var acc = $('t-acc').value; setMsg('t-msg', 'Loading…', '', true);
+    return get_('panel-api', { action: 'pools', account: acc }).then(function (d) { S.textsAcc = acc; renderTexts(d); setMsg('t-msg', ''); })
+      .catch(function (e) { setMsg('t-msg', e.message, 'err'); });
+  }
+  function dirty() { return Object.keys(ed).some(function (k) { return ed[k] && ed[k].ta.value !== ed[k].orig; }); }
+  $('t-acc').onchange = function () {
+    if (dirty() && !window.confirm('You have unsaved changes. Switch anyway?')) { $('t-acc').value = S.textsAcc || ''; return; }
+    loadTexts();
+  };
+  function lines(v) { return v.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean); }
+  function renderTexts(d) {
+    var cols = $('t-cols'); clear(cols); ed = {};
+    TYPES.forEach(function (t) {
+      var L = d.lists[t.k], text = L.items.join('\n') + (L.items.length ? '\n' : '');
+      var ta = h('textarea', { spellcheck: 'false', 'aria-label': t.title }); ta.value = text;
+      var count = h('span', { class: 'small muted' });
+      var tag = d.account ? badge(L.own ? 'Own list' : 'Using default list', L.own ? 'b-ok' : 'b-wait') : null;
+      var saveB = h('button', { text: 'Save' }), resetB = h('button', { class: 'ghost', text: 'Use default list' });
+      resetB.hidden = !d.account || !L.own;
+      ed[t.k] = { ta: ta, orig: text };
+      var upd = function () { var n = lines(ta.value).length; count.textContent = n + ' line' + (n === 1 ? '' : 's'); saveB.disabled = ta.value === ed[t.k].orig; };
+      ta.oninput = upd; upd();
+      saveB.onclick = function () {
+        saveB.disabled = true; setMsg('t-msg', 'Saving…', '', true);
+        post_({ action: 'savePools', account: d.account, type: t.k, items: lines(ta.value) }).then(function (r) {
+          return loadTexts().then(function () { setMsg('t-msg', t.title + ' saved: ' + r.saved + ' line' + (r.saved === 1 ? '' : 's') + (r.rejected ? ' (' + r.rejected + ' skipped: too long, duplicate or not allowed)' : '') + '.', 'ok'); return refreshAll(); });
+        }).catch(function (e) { setMsg('t-msg', e.message, 'err'); saveB.disabled = false; });
+      };
+      resetB.onclick = function () {
+        if (!window.confirm('Remove the own ' + t.title.toLowerCase() + ' list of "' + d.account + '" and use the default list?')) return;
+        post_({ action: 'resetPools', account: d.account, type: t.k }).then(function () { return loadTexts(); }).then(function () { setMsg('t-msg', 'Now using the default ' + t.title.toLowerCase() + '.', 'ok'); return refreshAll(); })
+          .catch(function (e) { setMsg('t-msg', e.message, 'err'); });
+      };
+      cols.appendChild(h('div', { class: 'card', style: 'margin:0' },
+        h('div', { class: 'row between', style: 'margin-bottom:4px' }, h('h2', { text: t.title }), tag), h('p', { class: 'muted small', style: 'margin:0 0 8px', text: t.hint }), ta,
+        h('div', { class: 'row between', style: 'margin-top:8px' }, count, h('div', { class: 'row' }, resetB, saveB))));
+    });
+  }
+  window.addEventListener('beforeunload', function (e) { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+  // ---------- publish ----------
+  function stopPoll() { if (S.poll) { clearInterval(S.poll); S.poll = null; } }
+  function follow() {
+    stopPoll(); var started = Date.now(), seenBusy = false;
+    S.poll = setInterval(function () {
+      refreshAll().then(function () {
+        var q = queueStats(), secs = (Date.now() - started) / 1000;
+        if (q.busy) seenBusy = true;
+        if (q.busy) setMsg('run-msg', 'Publishing a video… this usually takes a minute or two. You can keep this page open.', 'busy', true);
+        else if (!seenBusy && secs < 40) setMsg('run-msg', 'Starting…', 'busy', true);
+        else if (q.waiting && seenBusy && secs < 40 * 60 && !(q.lastErr && Date.parse(q.lastErr.processed_at) > started - 5000)) setMsg('run-msg', 'Waiting before the next video (a short pause between posts is normal)…', 'busy', true);
+        else if (q.lastErr && Date.parse(q.lastErr.processed_at) > started - 5000 && !q.busy) { stopPoll(); setMsg('run-msg', 'Stopped: ' + friendlyError(q.lastErr.error), 'err'); }
+        else { stopPoll(); setMsg('run-msg', 'Done. See the results below.', 'ok'); }
+        if (Date.now() - started > 90 * 60000) { stopPoll(); setMsg('run-msg', 'Still working. Press Refresh later to see the result.', 'busy'); }
+      }).catch(function () { /* повторим на следующем шаге */ });
+    }, 8000);
+  }
+  $('btn-run').onclick = function () {
+    var b = $('btn-run'); b.disabled = true; setMsg('run-msg', 'Starting…', 'busy', true);
+    get_('console-api', { action: 'run' }).then(function () { follow(); }).catch(function (e) { setMsg('run-msg', e.message, 'err'); b.disabled = false; });
+  };
+
+  if ($('server').value && $('key').value) connect(false);
 })();
 </script>
 </body>
