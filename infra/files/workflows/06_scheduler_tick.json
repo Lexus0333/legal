@@ -1,0 +1,255 @@
+{
+  "id": "ttScheduler000006",
+  "name": "06 Scheduler tick",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 300
+  },
+  "pinData": {},
+  "nodes": [
+    {
+      "id": "c0000006-0000-4000-8000-000000000001",
+      "name": "Tick (every minute)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c0000006-0000-4000-8000-000000000002",
+      "name": "Manual start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        160
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "c0000006-0000-4000-8000-000000000003",
+      "name": "When called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        320
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "c0000006-0000-4000-8000-000000000004",
+      "name": "Accounts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        240,
+        160
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SSWsIdTjYaqpXDiV"
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "c000006-0000-4000-8000-000000000005",
+      "name": "Plan and dispatch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        160
+      ],
+      "parameters": {
+        "jsCode": "// Планировщик: строит слоты публикаций, отдаёт их на подготовку и публикацию, помечает просроченные, пишет сводку для панели.\n// Состояние каждого слота лежит в отдельном файле /files/plan/<id>.json, поэтому параллельные воркфлоу не мешают друг другу.\nconst fs = require('fs');\nconst NAME = /^[A-Za-z0-9_-]{1,40}$/;\nconst PLAN = '/files/plan', STATE = '/files/state';\nconst MIN = 60000, HOUR = 3600000, DAY = 86400000;\nfor (const d of [PLAN, STATE + '/paused', STATE + '/first_plan', STATE + '/errors']) fs.mkdirSync(d, { recursive: true });\n// Один планировщик за раз (блокировка старше 5 минут считается зависшей).\nconst LOCK = PLAN + '/.tick.lock';\ntry { if (Date.now() - fs.statSync(LOCK).mtimeMs > 5 * MIN) fs.rmSync(LOCK, { recursive: true, force: true }); } catch (e) { /* блокировки нет */ }\ntry { fs.mkdirSync(LOCK); } catch (e) { return []; }\ntry {\n  const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { return d; } };\n  const writeJson = (f, o) => { const t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(o)); fs.renameSync(t, f); };\n  const now = Date.now();\n  const emit = [];\n  const warnings = [];\n\n  // ---------- настройки ----------\n  const base = {\n    global: { paused: true, catchup_hours: 6, max_parallel: 2, max_prepare: 2, prepare_ahead_hours: 12, pause_after_errors: 3, min_free_gb: 5, max_prepared: 400 },\n    default_profile: 'default',\n    profiles: { default: { posts_per_day: 2, windows: [['10:00', '22:00']], min_gap_min: 120, days: [1, 2, 3, 4, 5, 6, 7], tz: $env.TZ || 'UTC', ramp: null, enabled: true } },\n    group_profile: {}, overrides: {},\n  };\n  // schedule.json: при повреждении восстанавливаем из .bak; если копии нет, планировщик останавливается и файл НЕ затирается.\n  let schErr = '';\n  let sch = null;\n  try { sch = JSON.parse(fs.readFileSync('/files/schedule.json', 'utf8')); }\n  catch (e) {\n    if (e.code === 'ENOENT') { sch = base; writeJson('/files/schedule.json', sch); }\n    else {\n      try { sch = JSON.parse(fs.readFileSync('/files/schedule.json.bak', 'utf8')); fs.copyFileSync('/files/schedule.json', '/files/schedule.json.corrupt-' + Date.now()); writeJson('/files/schedule.json', sch); schErr = 'schedule.json was damaged and restored from the backup copy.'; }\n      catch (e2) { sch = Object.assign({}, base, { global: Object.assign({}, base.global, { paused: true }) }); schErr = 'schedule.json is damaged and there is no valid backup copy: the scheduler is stopped. Restore the file from your backup.'; }\n    }\n  }\n  const G = Object.assign({}, base.global, sch.global || {});\n  const profiles = (sch.profiles && Object.keys(sch.profiles).length) ? sch.profiles : base.profiles;\n  const accCfg = readJson('/files/accounts.json', {});\n\n  // ---------- время и часовые пояса (без внешних библиотек) ----------\n  const tzOffset = (ts, tz) => {\n    const p = {};\n    for (const x of new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(ts))) p[x.type] = x.value;\n    return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - Math.floor(ts / 1000) * 1000;\n  };\n  const localToUtc = (dateStr, minutes, tz) => {\n    const [y, m, d] = dateStr.split('-').map(Number);\n    const guess = Date.UTC(y, m - 1, d, 0, minutes);\n    let t = guess - tzOffset(guess, tz);\n    t = guess - tzOffset(t, tz);\n    return t;\n  };\n  const localDate = (ts, tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));\n  const weekday = (dateStr, tz) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(new Date(localToUtc(dateStr, 720, tz)))) + 1;\n  const addDays = (dateStr, n) => { const [y, m, d] = dateStr.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };\n  const daysBetween = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / DAY);\n  const toMin = s => { const m = /^(\\d{1,2}):(\\d{2})$/.exec(String(s)); return m ? Math.min(1440, +m[1] * 60 + +m[2]) : (String(s) === '24:00' ? 1440 : null); };\n\n  // Случайные минуты внутри окон с минимальным интервалом; lo - не раньше этой минуты суток (для сегодняшнего дня).\n  const genTimes = (n, windows, minGap, lo) => {\n    const segs = (windows || []).map(w => { const a = toMin(w[0]); let z = toMin(w[1]); if (a == null || z == null) return null; if (z <= a) z += 1440; return [Math.max(a, lo), z]; }).filter(s => s && s[1] > s[0]);\n    const total = segs.reduce((a, s) => a + (s[1] - s[0]), 0);\n    if (!total || n < 1) return [];\n    n = Math.min(n, Math.max(1, Math.floor(total / Math.max(1, minGap)) + 1));\n    const at = x => { let r = x; for (const s of segs) { const len = s[1] - s[0]; if (r < len) return s[0] + r; r -= len; } return segs[segs.length - 1][1]; };\n    for (let k = 0; k < 300; k++) {\n      const pts = Array.from({ length: n }, () => at(Math.random() * total)).sort((a, b) => a - b);\n      if (pts.every((v, i) => i === 0 || v - pts[i - 1] >= minGap)) return pts;\n    }\n    const step = total / n;\n    return Array.from({ length: n }, (_, i) => at(step * i + Math.random() * step * 0.8)).sort((a, b) => a - b);\n  };\n\n  // ---------- аккаунты ----------\n  const rows = {};\n  for (const i of $('Accounts').all()) { const r = i.json; if (r && r.account) rows[String(r.account).toLowerCase()] = r; }\n  const connected = Object.keys(rows).filter(a => NAME.test(a) && rows[a].refresh_token && Number(rows[a].refresh_expires_at) > now);\n  const pausedInfo = a => {\n    const f = STATE + '/paused/' + a + '.json', p = readJson(f, null);\n    if (!p) return null;\n    if (p.until && Date.parse(p.until) < now) { try { fs.unlinkSync(f); } catch (e) { /* уже нет */ } return null; }\n    return p;\n  };\n  const resolve = a => {\n    const cfg = accCfg[a] || {}, ov = (sch.overrides || {})[a] || {};\n    const pname = ov.profile || (sch.group_profile || {})[cfg.group] || sch.default_profile || 'default';\n    const prof = profiles[pname] || profiles[Object.keys(profiles)[0]];\n    const e = Object.assign({}, prof);\n    for (const k of ['posts_per_day', 'windows', 'min_gap_min', 'tz', 'days', 'ramp']) if (ov[k] !== undefined) e[k] = ov[k];\n    e.profile = pname; e.paused = !!ov.paused;\n    return e;\n  };\n\n  // ---------- слоты ----------\n  const slots = [];\n  for (const f of fs.readdirSync(PLAN)) {\n    if (!f.endsWith('.json') || f[0] === '.') continue;\n    const s = readJson(PLAN + '/' + f, null);\n    if (s && s.id) slots.push(s);\n  }\n  const save = s => { s.updated = Date.now(); writeJson(PLAN + '/' + s.id + '.json', s); };\n  const TERMINAL = ['done', 'skipped', 'failed'];\n  for (const s of slots.slice()) {\n    if (TERMINAL.includes(s.state) && now - (s.updated || s.at) > 2 * DAY) { try { fs.unlinkSync(PLAN + '/' + s.id + '.json'); } catch (e) { /* уже нет */ } slots.splice(slots.indexOf(s), 1); continue; }\n    // зависшие состояния\n    if (s.state === 'preparing' && now - (s.updated || 0) > 30 * MIN) { s.attempts = (s.attempts || 0) + 1; s.state = s.attempts >= 3 ? 'failed' : 'planned'; s.reason = s.attempts >= 3 ? 'preparation did not finish' : ''; save(s); }\n    else if (s.state === 'publishing' && now - (s.updated || 0) > 20 * MIN) {\n      s.state = 'failed'; s.reason = 'interrupted: check the TikTok account before publishing again'; save(s);\n      try { fs.appendFileSync('/files/posts.jsonl', JSON.stringify({ at: new Date().toISOString(), id: s.id, account: s.account, file: (s.video || {}).file || '', rel: (s.video || {}).rel || '', status: 'Error', error: 'Interrupted: the video may already be published. Check the TikTok account before publishing again.', kept: true, slot: s.id }) + '\\n'); } catch (e) { /* не критично */ }\n    }\n    // слишком опоздавшие слоты пропускаем\n    else if ((s.state === 'planned' || s.state === 'prepared') && now - Date.parse(s.at) > Number(G.catchup_hours) * HOUR) {\n      s.state = 'skipped'; s.reason = 'missed (late by more than ' + G.catchup_hours + ' h)'; save(s);\n      try { fs.rmSync('/files/prepared/' + s.id, { recursive: true, force: true }); } catch (e) { /* нет папки */ }\n    }\n  }\n\n  // ---------- планирование на сегодня и завтра (по часовому поясу аккаунта) ----------\n  const pd = readJson(STATE + '/plan_dates.json', {});\n  if (!G.paused) {\n    for (const a of connected) {\n      if (pausedInfo(a)) continue;\n      const e = resolve(a);\n      if (e.paused || e.enabled === false) continue;\n      const tz = e.tz || $env.TZ || 'UTC';\n      try { new Intl.DateTimeFormat('en', { timeZone: tz }); } catch (er) { continue; }\n      const today = localDate(now, tz), have = pd[a] || [];\n      let first = null; try { first = fs.readFileSync(STATE + '/first_plan/' + a + '.txt', 'utf8').trim(); } catch (er) { first = null; }\n      if (!first) { first = today; fs.writeFileSync(STATE + '/first_plan/' + a + '.txt', first); }\n      for (const date of [today, addDays(today, 1)]) {\n        if (have.includes(date)) continue;\n        have.push(date);\n        if (Array.isArray(e.days) && e.days.length && !e.days.includes(weekday(date, tz))) continue;\n        let n = Number(e.posts_per_day) || 0;\n        if (e.ramp && e.ramp.start) n = Math.min(n, Number(e.ramp.start) + Math.floor(Math.max(0, daysBetween(first, date)) / Math.max(1, Number(e.ramp.every_days) || 1)));\n        const lo = date === today ? Math.max(0, Math.ceil((now - localToUtc(today, 0, tz)) / MIN) + 2) : 0;\n        for (const m of genTimes(n, e.windows, Number(e.min_gap_min) || 0, lo)) {\n          const at = localToUtc(date, m, tz) + Math.floor(Math.random() * 60000);\n          const id = new Date(at).toISOString().slice(0, 16).replace(/[-:T]/g, '') + '_' + a + '_' + Math.random().toString(36).slice(2, 6);\n          const slot = { id, account: a, at: new Date(at).toISOString(), state: 'planned', attempts: 0, date, tz, created: now };\n          save(slot); slots.push(slot);\n        }\n      }\n      pd[a] = have.filter(d => d >= addDays(today, -2));\n    }\n    writeJson(STATE + '/plan_dates.json', pd);\n  }\n\n  // ---------- выдача слотов в работу ----------\n  const count = st => slots.filter(s => s.state === st).length;\n  const busy = new Set(slots.filter(s => s.state === 'preparing' || s.state === 'publishing').map(s => s.account));\n  const okAccount = a => !pausedInfo(a) && !(((sch.overrides || {})[a] || {}).paused);\n  {\n    let diskWarn = '';\n    try { const sf = fs.statfsSync('/files'); const freeGb = sf.bavail * sf.bsize / 1073741824; if (freeGb < Number(G.min_free_gb || 5)) diskWarn = 'Low disk space (' + freeGb.toFixed(1) + ' GB free): new posts are not being prepared.'; } catch (e) { /* нет данных о диске */ }\n    if (!diskWarn && count('prepared') + count('preparing') >= Number(G.max_prepared || 400)) diskWarn = 'Many prepared posts are waiting (' + (count('prepared') + count('preparing')) + '): preparation is paused until they are published.';\n    if (diskWarn) warnings.push(diskWarn);\n    let capPrep = diskWarn ? 0 : Number(G.max_prepare) - count('preparing');\n    for (const s of slots.filter(x => x.state === 'planned' && (!G.paused || x.manual) && Date.parse(x.at) <= now + Number(G.prepare_ahead_hours) * HOUR).sort((x, y) => Date.parse(x.at) - Date.parse(y.at))) {\n      if (capPrep <= 0) break;\n      if (busy.has(s.account) || !okAccount(s.account) || !connected.includes(s.account)) continue;\n      s.state = 'preparing'; save(s); busy.add(s.account); capPrep--; emit.push({ kind: 'prepare', slot: s });\n    }\n    let capPub = Number(G.max_parallel) - count('publishing');\n    for (const s of slots.filter(x => x.state === 'prepared' && (!G.paused || x.manual) && Date.parse(x.at) <= now).sort((x, y) => Date.parse(x.at) - Date.parse(y.at))) {\n      if (capPub <= 0) break;\n      if (busy.has(s.account) || !okAccount(s.account) || !connected.includes(s.account)) continue;\n      s.state = 'publishing'; save(s); busy.add(s.account); capPub--; emit.push({ kind: 'publish', slot: s });\n    }\n  }\n\n  // ---------- сводка для панели ----------\n  const counts = {}; for (const s of slots) counts[s.state] = (counts[s.state] || 0) + 1;\n  const open = slots.filter(s => !TERMINAL.includes(s.state)).sort((x, y) => Date.parse(x.at) - Date.parse(y.at));\n  const byAccount = {};\n  for (const s of open) { const b = byAccount[s.account] || (byAccount[s.account] = { next_at: s.at, next_state: s.state, open: 0 }); b.open++; }\n  const recent = slots.filter(s => TERMINAL.includes(s.state)).sort((x, y) => (y.updated || 0) - (x.updated || 0)).slice(0, 150);\n  const paused = [];\n  try { for (const f of fs.readdirSync(STATE + '/paused')) { const a = f.replace(/\\.json$/, ''), p = pausedInfo(a); if (p) paused.push(Object.assign({ account: a }, p)); } } catch (e) { /* нет */ }\n  writeJson('/files/plan_summary.json', {\n    at: now, global: G, counts, by_account: byAccount, paused, errors: schErr ? [schErr] : [], warnings,\n    upcoming: open.slice(0, 300).map(s => ({ id: s.id, account: s.account, at: s.at, state: s.state, manual: !!s.manual })),\n    recent: recent.map(s => ({ id: s.id, account: s.account, at: s.at, state: s.state, reason: s.reason || s.error || '', result: s.result || '' })),\n  });\n  // Ежедневная уборка: старые счётчики попыток входа, билеты, завершённые приглашения (90 дней), журнал ошибок.\n  const HK = STATE + '/housekeeping.json', hk = readJson(HK, { at: 0 });\n  if (now - hk.at > DAY) {\n    const rmOld = (dir, age) => { try { for (const f of fs.readdirSync(dir)) { const p = dir + '/' + f; try { if (now - fs.statSync(p).mtimeMs > age) fs.rmSync(p, { recursive: true, force: true }); } catch (e) { /* уже нет */ } } } catch (e) { /* нет папки */ } };\n    rmOld('/files/state/auth_fail', DAY); rmOld('/files/tickets', 3600000);\n    try {\n      for (const f of fs.readdirSync('/files/invites')) {\n        if (!f.endsWith('.json')) continue; const p = '/files/invites/' + f;\n        try { const i = JSON.parse(fs.readFileSync(p, 'utf8')); const done = i.used_at || i.status === 'revoked' || Date.parse(i.expires_at) < now; const ref = Date.parse(i.used_at || i.expires_at || 0) || 0; if (done && now - ref > 90 * DAY) fs.rmSync(p, { force: true }); } catch (e) { /* битый файл */ }\n      }\n    } catch (e) { /* нет приглашений */ }\n    try { const st = fs.statSync('/files/errors.log'); if (st.size > 5 * 1048576) fs.writeFileSync('/files/errors.log', fs.readFileSync('/files/errors.log', 'utf8').slice(-1048576)); } catch (e) { /* нет журнала */ }\n    writeJson(HK, { at: now });\n  }\n  // Пульс для внешнего мониторинга (например healthchecks.io): если ПК, Docker или n8n остановятся, сервис пришлёт оповещение.\n  const hb = String($env.HEARTBEAT_URL || '').trim();\n  if (/^https?:\\/\\//.test(hb)) {\n    await new Promise(resolve => {\n      try { const rq = (hb.startsWith('https') ? require('https') : require('http')).get(hb, res => { res.resume(); res.on('end', resolve); }); rq.on('error', resolve); rq.setTimeout(5000, () => { rq.destroy(); resolve(); }); }\n      catch (e) { resolve(); }\n    });\n  }\n  return emit.map(e => ({ json: e }));\n} finally { try { fs.rmSync(LOCK, { recursive: true, force: true }); } catch (e) { /* ok */ } }"
+      }
+    },
+    {
+      "id": "c0000006-0000-4000-8000-000000000006",
+      "name": "Is prepare?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        160
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "k1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.kind }}",
+              "rightValue": "prepare"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c0000006-0000-4000-8000-000000000007",
+      "name": "Run prepare",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        80
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ttPrepSlot000007"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "c0000006-0000-4000-8000-000000000008",
+      "name": "Run publish",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        240
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ttPubSlot0000008"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Tick (every minute)": {
+      "main": [
+        [
+          {
+            "node": "Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual start": {
+      "main": [
+        [
+          {
+            "node": "Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When called": {
+      "main": [
+        [
+          {
+            "node": "Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accounts": {
+      "main": [
+        [
+          {
+            "node": "Plan and dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan and dispatch": {
+      "main": [
+        [
+          {
+            "node": "Is prepare?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is prepare?": {
+      "main": [
+        [
+          {
+            "node": "Run prepare",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Run publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

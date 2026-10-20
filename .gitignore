@@ -1,0 +1,14 @@
+# Секреты и данные: никогда не выкладывать
+.env
+infra/.env
+infra/backups/
+infra/files/*
+!infra/files/scripts/
+!infra/files/workflows/
+!infra/files/fonts/
+infra/files/scripts/*.bak
+*.sqlite
+*.zip
+*.log
+site/.git
+__pycache__/

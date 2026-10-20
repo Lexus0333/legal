@@ -1,0 +1,19 @@
+# Шлюз между ngrok и n8n: из интернета доступны только вебхуки.
+# Редактор n8n (/, /signin, /rest/*) наружу не отдаётся, он доступен только на http://localhost:5678.
+{
+	auto_https off
+	admin off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:8080 {
+	@webhook path /webhook/*
+	handle @webhook {
+		reverse_proxy n8n:5678
+	}
+	handle {
+		respond "Not found" 404
+	}
+}

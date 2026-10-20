@@ -1,0 +1,644 @@
+{
+  "id": "ttConsole000003",
+  "name": "03 Console API",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "nodes": [
+    {
+      "id": "c0000003-0000-4000-8000-000000000001",
+      "name": "Console API (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "console-api",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "https://lexus0333.github.io"
+        }
+      },
+      "webhookId": "c0000003-0000-4000-8000-0000000000a1"
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000002",
+      "name": "Auth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const authCheck = (headers) => {\n  const crypto = require('crypto');\n  const fs = require('fs');\n  const a = String((headers || {}).authorization || '');\n  const given = a.startsWith('Bearer ') ? a.slice(7).trim() : '';\n  const sha = s => crypto.createHash('sha256').update(String(s)).digest();\n  // Адрес клиента: самый правый непубличный адрес из X-Forwarded-For (подмена слева не помогает).\n  const PRIV = /^(10\\.|127\\.|192\\.168\\.|172\\.(1[6-9]|2\\d|3[01])\\.|::1|fc|fd|fe80)/i;\n  const ip = String((headers || {})['x-forwarded-for'] || (headers || {})['x-real-ip'] || 'unknown').split(',').map(s => s.trim()).filter(Boolean).reverse().find(x => !PRIV.test(x)) || 'unknown';\n  const dir = '/files/state/auth_fail';\n  fs.mkdirSync(dir, { recursive: true });\n  const ff = dir + '/' + crypto.createHash('sha1').update(ip).digest('hex') + '.json';\n  let st = {}; try { st = JSON.parse(fs.readFileSync(ff, 'utf8')); } catch (e) { st = {}; }\n  const ts = Date.now();\n  if (st.blocked_until && st.blocked_until > ts) return { ok: false, status: 429 };\n  const secret = String($env.CONNECT_SECRET || '');\n  const good = !!given && !!secret && crypto.timingSafeEqual(sha(given), sha(secret));\n  if (good) { if (st.count) { try { fs.unlinkSync(ff); } catch (e) { /* уже нет */ } } return { ok: true, status: 200 }; }\n  if (!st.first_at || ts - st.first_at > 10 * 60000) st = { count: 0, first_at: ts };\n  st.count++;\n  if (st.count >= 10) st.blocked_until = ts + 15 * 60000;\n  fs.writeFileSync(ff, JSON.stringify(st));\n  return { ok: false, status: 403 };\n};\nreturn [{ json: authCheck($input.first().json.headers || {}) }];"
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000003",
+      "name": "Key ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "k1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000004",
+      "name": "Denied",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: $json.status === 429 ? 'too many attempts' : 'forbidden' }) }}",
+        "options": {
+          "responseCode": "={{ $json.status }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://lexus0333.github.io"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000005",
+      "name": "Accounts",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SSWsIdTjYaqpXDiV"
+        },
+        "returnAll": true
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000006",
+      "name": "Run requested?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "r1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $('Console API (GET)').first().json.query.action }}",
+              "rightValue": "run"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000007",
+      "name": "Precheck run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -140
+      ],
+      "parameters": {
+        "jsCode": "// Перед запуском публикации проверяем, что она действительно стартует, и честно говорим причину отказа.\nconst fs = require('fs');\nconst path = require('path');\nconst EXT = /\\.(mp4|mov|m4v)$/i;\nconst refuse = reason => [{ json: { ok: false, reason } }];\ntry { const st = fs.statSync('/files/work/.lock'); if (Date.now() - st.mtimeMs < 15 * 60 * 1000) return refuse('Another publication is already running. Wait until it finishes.'); } catch (e) { /* блокировки нет */ }\nconst accounts = new Set($('Accounts').all().map(i => i.json).filter(r => r && r.account && r.refresh_token).map(r => String(r.account).toLowerCase()));\nif (!accounts.size) return refuse('No TikTok account is connected. Connect an account first.');\n// есть ли хотя бы одно видео у подключённого аккаунта (поиск останавливается на первом найденном)\nlet found = false;\nconst walk = (dir, account) => {\n  if (found) return;\n  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {\n    if (found) return;\n    const p = path.join(dir, e.name);\n    if (e.isDirectory()) walk(p, account || e.name.toLowerCase());\n    else if (EXT.test(e.name) && accounts.has(account || String($env.DEFAULT_ACCOUNT || 'account1').toLowerCase())) found = true;\n  }\n};\ntry { if (fs.existsSync('/files/inbox')) walk('/files/inbox', ''); } catch (e) { /* нет inbox */ }\nif (!found) return refuse('There are no videos in the inbox for connected accounts.');\nreturn [{ json: { ok: true } }];"
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000008",
+      "name": "Can run?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        -140
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000009",
+      "name": "Start posting workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1540,
+        -220
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ttPublishFolder000004"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-00000000000a",
+      "name": "Respond run",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        -220
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ started: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://lexus0333.github.io"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-00000000000b",
+      "name": "Respond refused",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        -60
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ started: false, reason: $json.reason }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://lexus0333.github.io"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-00000000000c",
+      "name": "Disconnect requested?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "d1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $('Console API (GET)').first().json.query.action }}",
+              "rightValue": "disconnect"
+            },
+            {
+              "id": "d2",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              },
+              "leftValue": "={{ String($('Console API (GET)').first().json.query.account || '').toLowerCase() }}",
+              "rightValue": "^[a-z0-9_-]{1,40}$"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-00000000000d",
+      "name": "Get account",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        120
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SSWsIdTjYaqpXDiV"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "account",
+              "condition": "eq",
+              "keyValue": "={{ String($('Console API (GET)').first().json.query.account).toLowerCase() }}"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": 1
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "c0000003-0000-4000-8000-00000000000e",
+      "name": "Revoke access",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        120
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst tkey = () => crypto.scryptSync(String($env.N8N_ENCRYPTION_KEY || $env.CONNECT_SECRET || ''), 'tt-tokens-v1', 32);\nconst encTok = s => {\n  if (!s) return s;\n  const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', tkey(), iv);\n  const d = Buffer.concat([c.update(String(s), 'utf8'), c.final()]);\n  return 'enc:' + iv.toString('base64') + ':' + c.getAuthTag().toString('base64') + ':' + d.toString('base64');\n};\nconst decTok = s => {\n  if (!s || !String(s).startsWith('enc:')) return s;\n  const p = String(s).split(':'), k = crypto.createDecipheriv('aes-256-gcm', tkey(), Buffer.from(p[1], 'base64'));\n  k.setAuthTag(Buffer.from(p[2], 'base64'));\n  return Buffer.concat([k.update(Buffer.from(p[3], 'base64')), k.final()]).toString('utf8');\n};\n// Сначала отзываем доступ приложения на стороне TikTok, затем токены удаляются из таблицы.\nconst fs = require('fs');\nconst acc = $('Get account').first().json;\nconst out = { disconnected: true, revoked: false };\nlet token = ''; try { token = acc && acc.access_token ? decTok(acc.access_token) : ''; } catch (e) { out.revoke_error = 'Stored token could not be read.'; }\nif (token) {\n  const body = 'client_key=' + encodeURIComponent($env.TIKTOK_CLIENT_KEY) + '&client_secret=' + encodeURIComponent($env.TIKTOK_CLIENT_SECRET) + '&token=' + encodeURIComponent(token);\n  try {\n    await this.helpers.httpRequest({ method: 'POST', url: 'https://open.tiktokapis.com/v2/oauth/revoke/', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, json: false });\n    out.revoked = true;\n  } catch (e) { out.revoke_error = String(e.message).slice(0, 200); }\n}\n// запись о личности подключённого TikTok-аккаунта тоже удаляем\ntry { const name = String($('Console API (GET)').first().json.query.account || '').toLowerCase(); if (/^[a-z0-9_-]{1,40}$/.test(name)) fs.rmSync('/files/identity/' + name + '.json', { force: true }); } catch (e) { /* не критично */ }\nreturn [{ json: out }];"
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-00000000000f",
+      "name": "Delete account",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        120
+      ],
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SSWsIdTjYaqpXDiV"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "account",
+              "condition": "eq",
+              "keyValue": "={{ String($('Console API (GET)').first().json.query.account).toLowerCase() }}"
+            }
+          ]
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000010",
+      "name": "Respond disconnect",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1980,
+        120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('Revoke access').first().json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://lexus0333.github.io"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000011",
+      "name": "Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        360
+      ],
+      "parameters": {
+        "jsCode": "// Очередь = первые видео из inbox + журнал публикаций (читаем только хвост журнала, последние 2 МБ).\nconst fs = require('fs');\nconst path = require('path');\nconst EXT = /\\.(mp4|mov|m4v)$/i;\nconst natural = (x, y) => String(x).localeCompare(String(y), 'ru', { numeric: true });\nconst LOG = '/files/posts.jsonl';\nlet text = '';\ntry {\n  const size = fs.statSync(LOG).size, start = Math.max(0, size - 2 * 1024 * 1024), len = size - start, buf = Buffer.alloc(len), fd = fs.openSync(LOG, 'r');\n  fs.readSync(fd, buf, 0, len, start); fs.closeSync(fd);\n  text = buf.toString('utf8'); if (start > 0) text = text.slice(text.indexOf('\\n') + 1);\n} catch (e) { /* журнала ещё нет */ }\nconst byId = new Map();\nfor (const line of text.split('\\n')) {\n  if (!line.trim()) continue;\n  try { const o = JSON.parse(line); byId.set(o.id, Object.assign({}, byId.get(o.id) || {}, o)); } catch (e) { /* битая строка */ }\n}\nconst now = Date.now(), STALE = 20 * 60 * 1000;\n// Видео, которое сейчас публикуется, остаётся в inbox: не показываем его второй раз как \"ожидающее\".\nconst busy = new Set();\nfor (const o of byId.values()) if (o.status === 'Processing' && now - Date.parse(o.at) < STALE) busy.add([o.account, o.rel || '', o.file].join('|'));\n// Первые 8 ожидающих (обход по порядку с остановкой) и общее число (из кэша панели, иначе полный обход).\nconst first = [];\nconst sorted = d => fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => natural(a.name, b.name));\nconst walk = (dir, account, rel) => {\n  for (const e of sorted(dir)) {\n    if (first.length >= 8) return;\n    const p = path.join(dir, e.name);\n    if (e.isDirectory()) walk(p, account || e.name.toLowerCase(), account ? (rel ? rel + '/' + e.name : e.name) : '');\n    else if (EXT.test(e.name)) { const acc = account || String($env.DEFAULT_ACCOUNT || 'account1').toLowerCase(); if (!busy.has([acc, rel, e.name].join('|'))) first.push({ account: acc, file: e.name, rel }); }\n  }\n};\ntry { if (fs.existsSync('/files/inbox')) walk('/files/inbox', '', ''); } catch (e) { /* нет inbox */ }\nlet total = null;\ntry { const c = JSON.parse(fs.readFileSync('/files/panel_cache.json', 'utf8')); if (c.stock && now - c.stock.at < 5 * 60000) total = Object.values(c.stock.by).reduce((a, b) => a + b, 0); } catch (e) { total = null; }\nif (total === null) {\n  total = 0;\n  const count = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.isDirectory()) count(path.join(d, e.name)); else if (EXT.test(e.name)) total++; } };\n  try { if (fs.existsSync('/files/inbox')) count('/files/inbox'); } catch (e) { /* нет inbox */ }\n}\nconst label = (rel, file) => (rel ? rel + ' / ' : '') + file;\nconst rows = first.map(w => ({ status: 'Ready', file: label(w.rel, w.file), account: w.account }));\nif (total > first.length) rows.push({ status: 'Ready', file: '… and ' + (total - first.length) + ' more waiting in the inbox', account: '' });\n[...byId.values()].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 40).forEach(o => {\n  let status = o.status, error = String(o.error || '').slice(0, 200);\n  if (status === 'Processing' && now - Date.parse(o.at) > STALE) { status = 'Error'; error = 'Interrupted. The video was not published.'; }\n  rows.push({ status, file: label(o.rel, o.file), account: o.account, hook: o.hook || '', caption: o.caption || '', tiktok_status: o.tiktok_status || '', privacy: o.privacy || '', error, processed_at: o.at || '', ai_used: !!o.ai_used, waiting_total: total });\n});\nreturn (rows.length ? rows : [{}]).map(r => ({ json: r }));"
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000012",
+      "name": "Build status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        360
+      ],
+      "parameters": {
+        "jsCode": "// Только безопасные поля: токены и open_id наружу не отдаём.\nconst now = Date.now();\nconst accounts = $('Accounts').all().map(i => i.json).filter(r => r.account).map(r => ({\n  account: r.account,\n  connected: !!r.refresh_token,\n  access_valid: Number(r.access_expires_at) > now,\n  refresh_expires_at: Number(r.refresh_expires_at) || null,\n}));\nconst queue = $('Queue').all().map(i => i.json).filter(r => r.status).slice(0, 60);\nreturn [{ json: { accounts, queue, max_per_run: Number($env.MAX_POSTS_PER_RUN || 5), dry_run: $env.DRY_RUN === '1', ai_configured: !!($env.AI_BASE_URL && $env.AI_API_KEY && $env.AI_MODEL), server_time: new Date().toISOString() } }];"
+      }
+    },
+    {
+      "id": "c0000003-0000-4000-8000-000000000013",
+      "name": "Respond status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        360
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "https://lexus0333.github.io"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Console API (GET)": {
+      "main": [
+        [
+          {
+            "node": "Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth": {
+      "main": [
+        [
+          {
+            "node": "Key ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Key ok?": {
+      "main": [
+        [
+          {
+            "node": "Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accounts": {
+      "main": [
+        [
+          {
+            "node": "Run requested?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run requested?": {
+      "main": [
+        [
+          {
+            "node": "Precheck run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Disconnect requested?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Precheck run": {
+      "main": [
+        [
+          {
+            "node": "Can run?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Can run?": {
+      "main": [
+        [
+          {
+            "node": "Start posting workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond refused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start posting workflow": {
+      "main": [
+        [
+          {
+            "node": "Respond run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disconnect requested?": {
+      "main": [
+        [
+          {
+            "node": "Get account",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get account": {
+      "main": [
+        [
+          {
+            "node": "Revoke access",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revoke access": {
+      "main": [
+        [
+          {
+            "node": "Delete account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete account": {
+      "main": [
+        [
+          {
+            "node": "Respond disconnect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queue": {
+      "main": [
+        [
+          {
+            "node": "Build status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build status": {
+      "main": [
+        [
+          {
+            "node": "Respond status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

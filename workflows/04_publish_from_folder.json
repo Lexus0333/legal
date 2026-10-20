@@ -1,0 +1,649 @@
+{
+  "id": "ttPublishFolder000004",
+  "name": "04 Publish from folder",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 7200
+  },
+  "pinData": {},
+  "nodes": [
+    {
+      "id": "c0000004-0000-4000-8000-000000000001",
+      "name": "When called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000002",
+      "name": "Manual start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "parameters": {},
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000003",
+      "name": "Pick next",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Берёт следующее видео из /files/inbox и КОПИРУЕТ его в рабочую папку: исходные папки остаются на месте,\n// пока видео не опубликовано. Структура: inbox/<аккаунт>/[вложенные папки]/видео.mp4 (рядом могут быть картинки и .txt).\nconst fs = require('fs');\nconst path = require('path');\nconst INBOX = '/files/inbox', WORK = '/files/work', EXT = /\\.(mp4|mov|m4v)$/i;\nconst MARKD = '/files/state/published';\nconst mkHash = o => { let st = null; try { st = fs.statSync(o); } catch (e) { st = null; } return require('crypto').createHash('sha1').update(o + '|' + (st ? st.size : 0) + '|' + (st ? Math.floor(st.mtimeMs / 1000) : 0)).digest('hex'); };\nconst markFile = o => MARKD + '/' + mkHash(o) + '.json';\nconst isMarked = o => { try { return fs.existsSync(markFile(o)); } catch (e) { return false; } };\nconst writeMark = (o, info) => { fs.mkdirSync(MARKD, { recursive: true }); fs.writeFileSync(markFile(o), JSON.stringify(Object.assign({ orig: o, at: new Date().toISOString() }, info))); };\nconst clearMark = o => { try { fs.unlinkSync(markFile(o)); } catch (e) { /* метки не было */ } };\nconst LOCKS = '/files/state/locks';\nconst lockAcct = a => {\n  fs.mkdirSync(LOCKS, { recursive: true });\n  const d = LOCKS + '/acct_' + a;\n  try { if (Date.now() - fs.statSync(d).mtimeMs > 20 * 60000) fs.rmSync(d, { recursive: true, force: true }); } catch (e) { /* нет */ }\n  try { fs.mkdirSync(d); return true; } catch (e) { return false; }\n};\nconst unlockAcct = a => { try { fs.rmSync(LOCKS + '/acct_' + a, { recursive: true, force: true }); } catch (e) { /* ok */ } };\nfs.mkdirSync(WORK, { recursive: true });\n// Одна ручная публикация за раз: блокировка создаётся атомарно. Блокировка старше 15 минут считается зависшей.\nconst LOCK = path.join(WORK, '.lock');\ntry { if (Date.now() - fs.statSync(LOCK).mtimeMs > 15 * 60 * 1000) fs.rmSync(LOCK, { recursive: true, force: true }); } catch (e) { /* блокировки нет */ }\ntry { fs.mkdirSync(LOCK); } catch (e) { return []; }\nconst release = () => { try { fs.rmSync(LOCK, { recursive: true, force: true }); } catch (e) { /* ok */ } };\nlet lockedAccount = '';\ntry {\n  const defaultAccount = String($env.DEFAULT_ACCOUNT || 'account1').toLowerCase();\n  // видео, уже подготовленные расписанием под будущие слоты, ручная публикация не трогает\n  const reserved = new Set();\n  try {\n    for (const f of fs.readdirSync('/files/plan')) {\n      if (!f.endsWith('.json') || f[0] === '.') continue;\n      try { const s = JSON.parse(fs.readFileSync('/files/plan/' + f, 'utf8')); if (s.video && ['preparing', 'prepared', 'publishing'].includes(s.state)) reserved.add(s.video.orig); } catch (e) { /* битый файл */ }\n    }\n  } catch (e) { /* расписание ещё не создавало слоты */ }\n  const found = [];\n  const walk = (dir, account, rel) => {\n    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {\n      const p = path.join(dir, e.name);\n      if (e.isDirectory()) walk(p, account || e.name.toLowerCase(), account ? (rel ? rel + '/' + e.name : e.name) : '');\n      else if (EXT.test(e.name)) found.push({ account: account || defaultAccount, file: e.name, rel, orig: p });\n    }\n  };\n  if (fs.existsSync(INBOX)) walk(INBOX, '', '');\n  // Порядок: по аккаунту и названию папки/файла с учётом чисел (Рилс 2 раньше Рилс 10).\n  found.sort((a, b) => (a.account + '/' + a.rel + '/' + a.file).localeCompare(b.account + '/' + b.rel + '/' + b.file, 'ru', { numeric: true }));\n  // Берём первый свободный файл: не занят расписанием, не отправлялся ранее, перестал копироваться, у аккаунта нет другой публикации.\n  let pick = null;\n  for (const f of found) {\n    if (reserved.has(f.orig) || isMarked(f.orig)) continue;\n    const s1 = fs.statSync(f.orig).size;\n    await new Promise(r => setTimeout(r, 2000));\n    if (!(fs.existsSync(f.orig) && fs.statSync(f.orig).size === s1 && s1 > 0)) continue;\n    if (!lockAcct(f.account)) continue;\n    pick = f; lockedAccount = f.account; break;\n  }\n  if (!pick) { release(); return []; }\n  const dirOrig = path.dirname(pick.orig);\n  // Подсказка для текста: файл с тем же именем .txt, либо единственный .txt в папке ролика.\n  let txt = pick.orig.replace(EXT, '.txt');\n  if (!fs.existsSync(txt)) {\n    const txts = fs.readdirSync(dirOrig).filter(n => /\\.txt$/i.test(n));\n    const videosHere = found.filter(f => path.dirname(f.orig) === dirOrig).length;\n    txt = (txts.length === 1 && videosHere === 1) ? path.join(dirOrig, txts[0]) : '';\n  }\n  const rid = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);\n  const dir = path.join(WORK, rid);\n  fs.mkdirSync(dir, { recursive: true });\n  const ext = path.extname(pick.file).toLowerCase();\n  const src = path.join(dir, 'src' + ext);\n  fs.copyFileSync(pick.orig, src);\n  const hint = (txt && fs.existsSync(txt)) ? fs.readFileSync(txt, 'utf8').trim() : '';\n  const n = Number((($input.first() || { json: {} }).json || {}).n) || 0;\n  return [{ json: { rid, account: pick.account, file: pick.file, rel: pick.rel, ext, src, dir, orig: pick.orig, hint, hintOrig: txt || '', remaining: found.length - 1, n } }];\n} catch (e) { if (lockedAccount) unlockAcct(lockedAccount); release(); throw e; }"
+      },
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000004",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "client_key",
+              "value": "={{ $env.TIKTOK_CLIENT_KEY }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "client_secret",
+              "value": "={{ $env.TIKTOK_CLIENT_SECRET }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "privacy",
+              "value": "={{ $env.TIKTOK_PRIVACY || 'SELF_ONLY' }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "telegram_chat_id",
+              "value": "={{ $env.TELEGRAM_CHAT_ID }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000005",
+      "name": "Log processing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst r = $('Pick next').first().json;\nfs.appendFileSync('/files/posts.jsonl', JSON.stringify({ at: new Date().toISOString(), id: r.rid, account: r.account, file: r.file, rel: r.rel, status: 'Processing' }) + '\\n');\nreturn [{ json: r }];"
+      },
+      "position": [
+        720,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000006",
+      "name": "Extract frames",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "command": "=timeout 180 sh /files/scripts/extract_frames.sh {{ $('Pick next').first().json.src }} {{ $('Pick next').first().json.dir }}/frames"
+      },
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000007",
+      "name": "AI copy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "// Хук и подпись: ИИ по кадрам видео (если в .env заданы AI_BASE_URL, AI_API_KEY, AI_MODEL).\n// Любой сбой ИИ не останавливает публикацию: берём текст из подсказки .txt или имя файла.\nconst fs = require('fs');\nconst https = require('https');\nconst http = require('http');\nconst r = $('Pick next').first().json;\nconst base = String($env.AI_BASE_URL || '').trim().replace(/\\/+$/, '');\nconst key = String($env.AI_API_KEY || '').trim();\nconst model = String($env.AI_MODEL || '').trim();\nconst clean = s => String(s || '').replace(/[\\u{1F000}-\\u{1FFFF}\\u{2600}-\\u{27BF}\\uFE0F\\u200D]/gu, '').replace(/\\s+/g, ' ').trim();\n\nconst lines = r.hint.split(/\\r?\\n/).map(s => s.trim()).filter(Boolean);\nlet copy = {\n  hook: clean(lines[0] || '').slice(0, 60),\n  caption: clean(lines.slice(1).join(' ') || $env.DEFAULT_CAPTION || '').slice(0, 120),\n  hashtags: String($env.DEFAULT_HASHTAGS || '').split(/[\\s,]+/).map(h => h.replace(/^#/, '')).filter(Boolean).slice(0, 5),\n};\nlet aiUsed = false, aiError = '';\n\nif (base && key && model) {\n  try {\n    const frames = [1, 2, 3].map(i => r.dir + '/frames/f' + i + '.jpg').filter(p => fs.existsSync(p))\n      .map(p => ({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + fs.readFileSync(p).toString('base64') } }));\n    const lang = $env.AI_LANGUAGE || (r.hint ? 'the same language as the notes' : 'Russian');\n    const prompt = 'You write copy for a short vertical TikTok video. You see 3 frames from it.' +\n      (r.hint ? ' Notes from the author: ' + r.hint.slice(0, 500) + '.' : '') +\n      ' Reply with JSON only: {\"hook\": string, \"caption\": string, \"hashtags\": [string]}. ' +\n      'hook: a short attention-grabbing line shown on screen for the first seconds, max 45 characters, no emoji. ' +\n      'caption: one natural sentence, max 120 characters, no hashtags, no emoji. hashtags: 3-5 relevant words without #. ' +\n      'Language: ' + lang + '. Do not invent facts that are not visible or stated.';\n    const body = JSON.stringify({ model, temperature: 0.8, response_format: { type: 'json_object' },\n      messages: [{ role: 'user', content: [{ type: 'text', text: prompt }].concat(frames) }] });\n    const m = (base + '/chat/completions').match(/^(https?):\\/\\/([^\\/:]+)(?::(\\d+))?(\\/.*)$/);\n    if (!m) throw new Error('bad AI_BASE_URL');\n    const lib = m[1] === 'https' ? https : http;\n    const text = await new Promise((resolve, reject) => {\n      const req = lib.request({ method: 'POST', hostname: m[2], port: m[3] || (m[1] === 'https' ? 443 : 80), path: m[4], timeout: 60000,\n        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), Authorization: 'Bearer ' + key } },\n        res => { let b = ''; res.on('data', d => { b += d; }); res.on('end', () => (res.statusCode < 300 ? resolve(b) : reject(new Error('AI HTTP ' + res.statusCode + ' ' + b.slice(0, 200))))); });\n      req.on('timeout', () => req.destroy(new Error('AI timeout')));\n      req.on('error', reject);\n      req.end(body);\n    });\n    const content = JSON.parse(text).choices[0].message.content;\n    const j = JSON.parse(String(content).match(/\\{[\\s\\S]*\\}/)[0]);\n    copy = {\n      hook: clean(j.hook).slice(0, 60),\n      caption: clean(j.caption).slice(0, 150),\n      hashtags: (Array.isArray(j.hashtags) ? j.hashtags : []).map(h => clean(h).replace(/^#/, '').replace(/\\s+/g, '')).filter(Boolean).slice(0, 5),\n    };\n    aiUsed = true;\n  } catch (e) { aiError = String(e.message).slice(0, 200); }\n}\n// Если хука/подписи/хэштегов нет (нет .txt и ИИ не сработал), берём случайные из пулов /files/pools/*.txt.\n// Списки аккаунта (/files/pools/<аккаунт>/) важнее общих (/files/pools/<язык>/). Пустой файл аккаунта означает \"не использовать\".\nconst readPool = f => { try { return fs.readFileSync(f, 'utf8').split(/\\r?\\n/).map(s => s.trim()).filter(Boolean); } catch (e) { return null; } };\nconst pool = n => (/^[A-Za-z0-9_-]{1,40}$/.test(r.account) ? readPool('/files/pools/' + r.account + '/' + n + '.txt') : null) || readPool('/files/pools/' + ($env.POOL_LANG || 'en') + '/' + n + '.txt') || [];\nconst pickOne = a => a[Math.floor(Math.random() * a.length)];\nif (!copy.hook) { const h = pool('hooks'); if (h.length) copy.hook = clean(pickOne(h)).slice(0, 60); }\nif (!copy.caption) { const c = pool('captions'); if (c.length) copy.caption = pickOne(c).slice(0, 150); }\nif (!copy.hashtags.length) {\n  const tg = pool('hashtags');\n  if (tg.length) copy.hashtags = tg.map(h => ({ h, k: Math.random() })).sort((a, b) => a.k - b.k).slice(0, 4).map(o => o.h.replace(/^#/, '').replace(/\\s+/g, ''));\n}\nfs.writeFileSync(r.dir + '/hook.txt', copy.hook ? copy.hook + '\\n' : '');\nreturn [{ json: { copy, ai_used: aiUsed, ai_error: aiError } }];"
+      },
+      "position": [
+        1200,
+        0
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000008",
+      "name": "ffmpeg variant",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "command": "=timeout 900 sh /files/scripts/make_variants.sh {{ $('Pick next').first().json.src }} {{ $('Pick next').first().json.dir }}/out {{ $('AI copy').first().json.copy.hook ? $('Pick next').first().json.dir + '/hook.txt' : '-' }} 0 0"
+      },
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000013",
+      "name": "Add music",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "command": "=timeout 900 sh /files/scripts/add_music.sh {{ $('Pick next').first().json.dir }}/out/src_v1.mp4 /files/music {{ $env.MUSIC_MODE || 'silent' }} {{ $env.MUSIC_VOLUME || '1' }}"
+      },
+      "position": [
+        1440,
+        200
+      ]
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000009",
+      "name": "Get tokens",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        0
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SSWsIdTjYaqpXDiV"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "account",
+              "condition": "eq",
+              "keyValue": "={{ $('Pick next').first().json.account }}"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": 1
+      },
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0000004-0000-4000-8000-00000000000a",
+      "name": "Token logic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst tkey = () => crypto.scryptSync(String($env.N8N_ENCRYPTION_KEY || $env.CONNECT_SECRET || ''), 'tt-tokens-v1', 32);\nconst encTok = s => {\n  if (!s) return s;\n  const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', tkey(), iv);\n  const d = Buffer.concat([c.update(String(s), 'utf8'), c.final()]);\n  return 'enc:' + iv.toString('base64') + ':' + c.getAuthTag().toString('base64') + ':' + d.toString('base64');\n};\nconst decTok = s => {\n  if (!s || !String(s).startsWith('enc:')) return s;\n  const p = String(s).split(':'), k = crypto.createDecipheriv('aes-256-gcm', tkey(), Buffer.from(p[1], 'base64'));\n  k.setAuthTag(Buffer.from(p[2], 'base64'));\n  return Buffer.concat([k.update(Buffer.from(p[3], 'base64')), k.final()]).toString('utf8');\n};\n// Токены в таблице хранятся зашифрованными; если скоро истекает access-токен, обновляем его через refresh-токен.\nconst cfg = $('Config').first().json;\nconst acc = $('Pick next').first().json.account;\nconst row = $input.first().json;\nif (!row || !row.access_token) throw new Error('Account \"' + acc + '\" is not connected. Connect it from the console or with an invitation link.');\nconst now = Date.now();\nif (Number(row.refresh_expires_at) < now) throw new Error('Refresh token expired for \"' + acc + '\". Reconnect the account.');\nlet t;\ntry { t = { access_token: decTok(row.access_token), refresh_token: decTok(row.refresh_token), access_expires_at: Number(row.access_expires_at), refresh_expires_at: Number(row.refresh_expires_at) }; }\ncatch (e) { throw new Error('Account \"' + acc + '\" is not connected: the stored login could not be read. Reconnect the account.'); }\nif (t.access_expires_at - now < 10 * 60 * 1000) {\n  const body = new URLSearchParams({ client_key: cfg.client_key, client_secret: cfg.client_secret, grant_type: 'refresh_token', refresh_token: t.refresh_token }).toString();\n  let r;\n  try { r = await this.helpers.httpRequest({ method: 'POST', url: 'https://open.tiktokapis.com/v2/oauth/token/', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, json: true }); }\n  catch (e) { const m = String(e.message); throw new Error((/ECONN|ETIMEDOUT|EAI_AGAIN|socket|timed? ?out|status code 5\\d\\d|\\b429\\b/i.test(m) ? '[transient] ' : '') + 'Token refresh failed: ' + m.slice(0, 200)); }\n  if (!r.access_token) throw new Error('Token refresh failed: ' + JSON.stringify(r).slice(0, 300));\n  t = { access_token: r.access_token, refresh_token: r.refresh_token || t.refresh_token, access_expires_at: now + r.expires_in * 1000, refresh_expires_at: r.refresh_expires_in ? now + r.refresh_expires_in * 1000 : t.refresh_expires_at };\n}\nreturn [{ json: { account: acc, access_token: t.access_token, refresh_token: t.refresh_token, access_expires_at: t.access_expires_at, refresh_expires_at: t.refresh_expires_at,\n  save_access_token: encTok(t.access_token), save_refresh_token: encTok(t.refresh_token) } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0000004-0000-4000-8000-00000000000b",
+      "name": "Save tokens",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        0
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SSWsIdTjYaqpXDiV"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "account",
+              "condition": "eq",
+              "keyValue": "={{ $json.account }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "access_token": "={{ $json.save_access_token }}",
+            "refresh_token": "={{ $json.save_refresh_token }}",
+            "access_expires_at": "={{ $json.access_expires_at }}",
+            "refresh_expires_at": "={{ $json.refresh_expires_at }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0000004-0000-4000-8000-00000000000c",
+      "name": "Upload to TikTok",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst https = require('https');\nconst MARKD = '/files/state/published';\nconst mkHash = o => { let st = null; try { st = fs.statSync(o); } catch (e) { st = null; } return require('crypto').createHash('sha1').update(o + '|' + (st ? st.size : 0) + '|' + (st ? Math.floor(st.mtimeMs / 1000) : 0)).digest('hex'); };\nconst markFile = o => MARKD + '/' + mkHash(o) + '.json';\nconst isMarked = o => { try { return fs.existsSync(markFile(o)); } catch (e) { return false; } };\nconst writeMark = (o, info) => { fs.mkdirSync(MARKD, { recursive: true }); fs.writeFileSync(markFile(o), JSON.stringify(Object.assign({ orig: o, at: new Date().toISOString() }, info))); };\nconst clearMark = o => { try { fs.unlinkSync(markFile(o)); } catch (e) { /* метки не было */ } };\nconst cfg = $('Config').first().json;\nconst tok = $('Token logic').first().json.access_token;\nconst row = $('Pick next').first().json;\nconst cap = $('AI copy').first().json.copy;\nconst tags = (cap.hashtags || []).map(h => '#' + String(h).replace(/^#/, '').replace(/\\s+/g, '')).join(' ');\nconst title = (String(cap.caption || '') + ' ' + tags).trim().slice(0, 2200);\nif ($env.DRY_RUN === '1') return [{ json: { publish_id: 'dry-run', tiktok_status: 'DRY_RUN', title, privacy: cfg.privacy, params: '{}' } }];\n\nconst filePath = row.dir + '/out/src_v1.mp4';\nconst size = fs.statSync(filePath).size;\nconst TRANS = /ECONN|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|socket hang up|timed? ?out|status code 5\\d\\d|HTTP 5\\d\\d|\\b429\\b/i;\nconst wait = ms => new Promise(r => setTimeout(r, ms));\n// Запрос к TikTok: временные сбои (сеть, 5xx, 429) повторяются с нарастающей паузой и помечаются как [transient].\nconst api = async (path, body, tries) => {\n  const max = tries || 1; let last;\n  for (let a = 1; a <= max; a++) {\n    try {\n      return await this.helpers.httpRequest({ method: 'POST', url: 'https://open.tiktokapis.com' + path,\n        headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json; charset=UTF-8' }, body, json: true });\n    } catch (e) {\n      const b = (e.response && (e.response.body || e.response.data)) || (e.context && e.context.data) || e.description || '';\n      const msg = path + ': ' + e.message + ' ' + (typeof b === 'string' ? b : JSON.stringify(b)).slice(0, 500);\n      last = new Error((TRANS.test(msg) ? '[transient] ' : '') + msg);\n      if (!TRANS.test(msg) || a === max) break;\n      await wait(2000 * a * a);\n    }\n  }\n  throw last;\n};\nconst check = (r, what) => { if (r.error && r.error.code && r.error.code !== 'ok') throw new Error(what + ': ' + JSON.stringify(r.error)); return r; };\n\nconst info = check(await api('/v2/post/publish/creator_info/query/', {}, 3), 'creator_info');\nconst allowed = (info.data && info.data.privacy_level_options) || [];\nconst privacy = cfg.privacy;\nif (allowed.length && !allowed.includes(privacy)) throw new Error('Privacy ' + privacy + ' not allowed for this account now. Allowed: ' + allowed.join(', '));\n// Длительность проверяем до загрузки: TikTok задаёт максимум для аккаунта, а длительность готового ролика записана в variants.csv.\nconst maxSec = Number(info.data && info.data.max_video_post_duration_sec) || 0;\nlet dur = 0;\ntry { const rows = fs.readFileSync(row.dir + '/out/variants.csv', 'utf8').trim().split('\\n'); dur = Number(rows[rows.length - 1].split(',').pop()) || 0; } catch (e) { dur = 0; }\nif (maxSec && dur > maxSec) throw new Error('Video is too long: ' + Math.round(dur) + ' s, TikTok allows up to ' + maxSec + ' s for this account.');\n// Метка «создано ИИ»: по умолчанию включена; для аккаунта отключается флагом aigc=false в настройках аккаунта, для всех: AIGC_LABEL=0.\nlet accCfg = {}; try { accCfg = JSON.parse(fs.readFileSync('/files/accounts.json', 'utf8'))[row.account] || {}; } catch (e) { accCfg = {}; }\nconst aigc = typeof accCfg.aigc === 'boolean' ? accCfg.aigc : String($env.AIGC_LABEL || '1') !== '0';\n\n// Правила TikTok: до 64 MB - одним куском; больше - куски по 32 MB, остаток уходит в последний.\nconst MB = 1024 * 1024;\nlet chunk = size, count = 1;\nif (size > 64 * MB) { chunk = 32 * MB; count = Math.floor(size / chunk); }\n\nconst init = check(await api('/v2/post/publish/video/init/', {\n  post_info: { title, privacy_level: privacy, disable_duet: false, disable_comment: false, disable_stitch: false, is_aigc: aigc },\n  source_info: { source: 'FILE_UPLOAD', video_size: size, chunk_size: chunk, total_chunk_count: count },\n}, 2), 'init');\nconst { publish_id, upload_url } = init.data;\n// С этого момента видео может оказаться в TikTok: помечаем исходник, чтобы при любом сбое его не выложили второй раз.\nif (row.orig) writeMark(row.orig, { state: 'uploading', publish_id, account: row.account });\n\nconst putChunk = (start, end) => new Promise((resolve, reject) => {\n  const m = String(upload_url).match(/^https:\\/\\/([^\\/]+)(\\/.*)$/);\n  if (!m) return reject(new Error('bad upload_url'));\n  const req = https.request({ method: 'PUT', hostname: m[1], path: m[2],\n    headers: { 'Content-Type': 'video/mp4', 'Content-Length': end - start + 1, 'Content-Range': 'bytes ' + start + '-' + end + '/' + size } },\n    res => { let b = ''; res.on('data', d => { b += d; }); res.on('end', () => (res.statusCode < 300 ? resolve() : reject(new Error('HTTP ' + res.statusCode + ' ' + b.slice(0, 300))))); });\n  req.on('error', reject);\n  fs.createReadStream(filePath, { start, end }).pipe(req);\n});\nfor (let i = 0; i < count; i++) {\n  const start = i * chunk;\n  const end = i === count - 1 ? size - 1 : start + chunk - 1;\n  let lastErr = '';\n  for (let attempt = 1; attempt <= 3; attempt++) {\n    try { await putChunk(start, end); lastErr = ''; break; }\n    catch (e) { lastErr = 'upload chunk ' + (i + 1) + '/' + count + ' attempt ' + attempt + ': ' + e.message; await wait(5000); }\n  }\n  // Файл не доехал целиком: в TikTok ничего не опубликовано, метку снимаем, повтор безопасен.\n  if (lastErr) { clearMark(row.orig); throw new Error('[transient] ' + lastErr); }\n}\n\n// Опрос статуса. Видео уже загружено, поэтому сбой опроса НЕ означает неудачу публикации: после 5 ошибок подряд статус остаётся «неизвестен».\nlet status = 'PROCESSING_UPLOAD', fail = '', errs = 0;\nfor (let k = 0; k < 30; k++) {\n  await wait(6000);\n  try {\n    const s = check(await api('/v2/post/publish/status/fetch/', { publish_id }, 1), 'status');\n    errs = 0; status = (s.data && s.data.status) || status;\n    if (['PUBLISH_COMPLETE', 'FAILED', 'SEND_TO_USER_INBOX'].includes(status)) { fail = (s.data && s.data.fail_reason) || ''; break; }\n  } catch (e) { errs++; if (errs >= 5) { status = 'UNKNOWN'; break; } }\n}\nif (status === 'FAILED') { clearMark(row.orig); throw new Error('TikTok FAILED: ' + fail); }\nif (row.orig) writeMark(row.orig, { state: status === 'PUBLISH_COMPLETE' ? 'published' : 'unconfirmed', publish_id, account: row.account });\nreturn [{ json: { publish_id, tiktok_status: status, title, privacy, params: JSON.stringify({ hook: cap.hook, account: row.account }) } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0000004-0000-4000-8000-00000000000d",
+      "name": "Finish",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst r = $('Pick next').first().json;\nconst u = $input.first().json;\nconst ai = $('AI copy').first().json;\nconst MARKD = '/files/state/published';\nconst mkHash = o => { let st = null; try { st = fs.statSync(o); } catch (e) { st = null; } return require('crypto').createHash('sha1').update(o + '|' + (st ? st.size : 0) + '|' + (st ? Math.floor(st.mtimeMs / 1000) : 0)).digest('hex'); };\nconst markFile = o => MARKD + '/' + mkHash(o) + '.json';\nconst isMarked = o => { try { return fs.existsSync(markFile(o)); } catch (e) { return false; } };\nconst writeMark = (o, info) => { fs.mkdirSync(MARKD, { recursive: true }); fs.writeFileSync(markFile(o), JSON.stringify(Object.assign({ orig: o, at: new Date().toISOString() }, info))); };\nconst clearMark = o => { try { fs.unlinkSync(markFile(o)); } catch (e) { /* метки не было */ } };\nconst LOCKS = '/files/state/locks';\nconst lockAcct = a => {\n  fs.mkdirSync(LOCKS, { recursive: true });\n  const d = LOCKS + '/acct_' + a;\n  try { if (Date.now() - fs.statSync(d).mtimeMs > 20 * 60000) fs.rmSync(d, { recursive: true, force: true }); } catch (e) { /* нет */ }\n  try { fs.mkdirSync(d); return true; } catch (e) { return false; }\n};\nconst unlockAcct = a => { try { fs.rmSync(LOCKS + '/acct_' + a, { recursive: true, force: true }); } catch (e) { /* ok */ } };\nconst EXT = /\\.(mp4|mov|m4v)$/i;\nconst stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);\nconst base = String((r && r.file) || 'video').replace(/\\.[^.]+$/, '');\nconst uniq = (p) => { if (!fs.existsSync(p)) return p; const x = path.extname(p); return p.slice(0, p.length - x.length) + '_' + stamp + x; };\nconst uniqDir = (p) => (fs.existsSync(p) ? p + '_' + stamp : p);\n// Если в папке один ролик, переносится вся папка; если несколько, только этот ролик и его текст.\nconst archive = (destRoot) => {\n  fs.mkdirSync(destRoot, { recursive: true });\n  const folderDir = path.dirname(r.orig);\n  const videosHere = fs.readdirSync(folderDir).filter(x => EXT.test(x)).length;\n  if (r.rel !== '' && videosHere === 1) {\n    const target = uniqDir(path.join(destRoot, path.basename(folderDir)));\n    fs.renameSync(folderDir, target);\n    return target;\n  }\n  const target = r.rel !== '' ? path.join(destRoot, path.basename(folderDir)) : path.join(destRoot, stamp + '_' + base);\n  fs.mkdirSync(target, { recursive: true });\n  fs.renameSync(r.orig, uniq(path.join(target, r.file)));\n  if (r.hintOrig && fs.existsSync(r.hintOrig)) fs.renameSync(r.hintOrig, uniq(path.join(target, path.basename(r.hintOrig))));\n  return target;\n};\nconst release = () => { try { fs.rmSync('/files/work/.lock', { recursive: true, force: true }); } catch (e) { /* ok */ } };\nconst st = u.tiktok_status === 'PUBLISH_COMPLETE' ? 'Posted' : (u.tiktok_status === 'DRY_RUN' ? 'DryRun' : 'Check');\nlet music = '';\ntry { music = String($('Add music').first().json.stdout || '').trim().split('\\n').pop().replace(/^MUSIC /, ''); } catch (e) { music = ''; }\nlet archErr = '';\ntry {\n  if (st !== 'DryRun') {\n    // Видео уже в TikTok (метка поставлена при загрузке): сбой переноса папки не приведёт к повторной публикации.\n    const finalVideo = r.dir + '/out/src_v1.mp4';\n    const target = archive(path.join('/files/done', r.account));\n    if (fs.existsSync(finalVideo)) fs.copyFileSync(finalVideo, uniq(path.join(target, base + '_published.mp4')));\n    fs.writeFileSync(uniq(path.join(target, base + '_post.json')), JSON.stringify({ posted_at: new Date().toISOString(), account: r.account, source: r.file,\n      hook: ai.copy.hook, caption: u.title, publish_id: u.publish_id, tiktok_status: u.tiktok_status, privacy: u.privacy, music }, null, 2));\n  }\n} catch (e) { archErr = String(e.message).slice(0, 200); }\nfs.appendFileSync('/files/posts.jsonl', JSON.stringify({ at: new Date().toISOString(), id: r.rid, account: r.account, file: r.file, rel: r.rel, status: st,\n  hook: ai.copy.hook, caption: u.title, publish_id: u.publish_id, tiktok_status: u.tiktok_status, privacy: u.privacy, ai_used: ai.ai_used, ai_error: ai.ai_error, music, archive_error: archErr }) + '\\n');\nfs.rmSync(r.dir, { recursive: true, force: true });\nunlockAcct(r.account); release();\nreturn [{ json: { remaining: r.remaining, n: r.n + 1, status: st } }];"
+      },
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "id": "c0000004-0000-4000-8000-00000000000e",
+      "name": "Fail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst r = $('Pick next').first().json;\n// Повторный вызов (ошибка пришла по двум веткам): работа уже разобрана.\nif (!fs.existsSync(r.dir)) return [];\nconst MARKD = '/files/state/published';\nconst mkHash = o => { let st = null; try { st = fs.statSync(o); } catch (e) { st = null; } return require('crypto').createHash('sha1').update(o + '|' + (st ? st.size : 0) + '|' + (st ? Math.floor(st.mtimeMs / 1000) : 0)).digest('hex'); };\nconst markFile = o => MARKD + '/' + mkHash(o) + '.json';\nconst isMarked = o => { try { return fs.existsSync(markFile(o)); } catch (e) { return false; } };\nconst writeMark = (o, info) => { fs.mkdirSync(MARKD, { recursive: true }); fs.writeFileSync(markFile(o), JSON.stringify(Object.assign({ orig: o, at: new Date().toISOString() }, info))); };\nconst clearMark = o => { try { fs.unlinkSync(markFile(o)); } catch (e) { /* метки не было */ } };\nconst LOCKS = '/files/state/locks';\nconst lockAcct = a => {\n  fs.mkdirSync(LOCKS, { recursive: true });\n  const d = LOCKS + '/acct_' + a;\n  try { if (Date.now() - fs.statSync(d).mtimeMs > 20 * 60000) fs.rmSync(d, { recursive: true, force: true }); } catch (e) { /* нет */ }\n  try { fs.mkdirSync(d); return true; } catch (e) { return false; }\n};\nconst unlockAcct = a => { try { fs.rmSync(LOCKS + '/acct_' + a, { recursive: true, force: true }); } catch (e) { /* ok */ } };\nconst SYS_RE = /not connected|Refresh token expired|allowed for this account|unaudited_client|invalid_client|access_token_invalid|scope_not_authorized|invalid_grant|could not be read/i;\nconst DAILY_RE = /spam_risk|too_many_posts|reached_active_user_cap|daily_post|daily limit/i;\nconst TRANSIENT_RE = /^\\[transient\\]|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|socket hang up|timed? ?out|status code 5\\d\\d|HTTP 5\\d\\d|service_unavailable|\\b429\\b/i;\nconst pauseAccount = (account, reason, until) => {\n  fs.mkdirSync('/files/state/paused', { recursive: true });\n  fs.writeFileSync('/files/state/paused/' + account + '.json', JSON.stringify(Object.assign({ reason: String(reason).slice(0, 300), at: new Date().toISOString() }, until ? { until } : {})));\n};\nconst bumpErrors = (account, limit) => {\n  fs.mkdirSync('/files/state/errors', { recursive: true });\n  const ef = '/files/state/errors/' + account + '.json'; let c = 0; try { c = JSON.parse(fs.readFileSync(ef, 'utf8')).count || 0; } catch (e) { c = 0; }\n  c++; fs.writeFileSync(ef, JSON.stringify({ count: c, at: new Date().toISOString() }));\n  return c >= limit ? c : 0;\n};\nconst EXT = /\\.(mp4|mov|m4v)$/i;\nconst stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);\nconst base = String((r && r.file) || 'video').replace(/\\.[^.]+$/, '');\nconst uniq = (p) => { if (!fs.existsSync(p)) return p; const x = path.extname(p); return p.slice(0, p.length - x.length) + '_' + stamp + x; };\nconst uniqDir = (p) => (fs.existsSync(p) ? p + '_' + stamp : p);\n// Если в папке один ролик, переносится вся папка; если несколько, только этот ролик и его текст.\nconst archive = (destRoot) => {\n  fs.mkdirSync(destRoot, { recursive: true });\n  const folderDir = path.dirname(r.orig);\n  const videosHere = fs.readdirSync(folderDir).filter(x => EXT.test(x)).length;\n  if (r.rel !== '' && videosHere === 1) {\n    const target = uniqDir(path.join(destRoot, path.basename(folderDir)));\n    fs.renameSync(folderDir, target);\n    return target;\n  }\n  const target = r.rel !== '' ? path.join(destRoot, path.basename(folderDir)) : path.join(destRoot, stamp + '_' + base);\n  fs.mkdirSync(target, { recursive: true });\n  fs.renameSync(r.orig, uniq(path.join(target, r.file)));\n  if (r.hintOrig && fs.existsSync(r.hintOrig)) fs.renameSync(r.hintOrig, uniq(path.join(target, path.basename(r.hintOrig))));\n  return target;\n};\nconst release = () => { try { fs.rmSync('/files/work/.lock', { recursive: true, force: true }); } catch (e) { /* ok */ } };\nconst e = $json.error;\nconst msg = String(typeof e === 'string' ? e : (e && e.message) || JSON.stringify($json)).slice(0, 400);\nconst systemic = SYS_RE.test(msg);\nconst daily = !systemic && DAILY_RE.test(msg);\nconst transient = !systemic && !daily && TRANSIENT_RE.test(msg);\nlet sch = {}; try { sch = JSON.parse(fs.readFileSync('/files/schedule.json', 'utf8')); } catch (er) { sch = {}; }\nif (systemic) pauseAccount(r.account, msg);\nelse if (daily) pauseAccount(r.account, 'TikTok daily limit: ' + msg, new Date(Date.now() + 6 * 3600000).toISOString());\nconst keep = systemic || daily || transient || isMarked(r.orig);   // исходник остаётся в очереди, если сбой временный, системный или видео уже могло уйти в TikTok\nfs.appendFileSync('/files/posts.jsonl', JSON.stringify({ at: new Date().toISOString(), id: r.rid, account: r.account, file: r.file, rel: r.rel, status: 'Error', error: msg, kept: keep }) + '\\n');\ntry {\n  if (!keep) {\n    const target = archive(path.join('/files/failed', r.account));\n    fs.writeFileSync(uniq(path.join(target, base + '_error.txt')), msg + '\\n');\n  }\n} catch (err) { /* не критично */ }\nfs.rmSync(r.dir, { recursive: true, force: true });\nunlockAcct(r.account); release();\n// Временные сбои, ошибки аккаунта и лимиты останавливают очередь: остальные видео остаются в inbox.\nreturn [{ json: { error: msg, remaining: keep ? 0 : r.remaining, n: r.n + 1, systemic: systemic || daily, transient, file: r.file, account: r.account } }];"
+      },
+      "position": [
+        2640,
+        400
+      ]
+    },
+    {
+      "id": "c0000004-0000-4000-8000-00000000000f",
+      "name": "Telegram alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2880,
+        600
+      ],
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.telegram_chat_id }}",
+        "text": "={{ 'TikTok: error for ' + $json.account + ' (' + $json.file + '): ' + $json.error + ($json.systemic ? ' [stopped, file kept in inbox]' : ($json.transient ? ' [temporary problem, file kept in inbox]' : ' [file moved to failed]')) }}",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram bot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000010",
+      "name": "More videos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "m1",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "leftValue": "={{ ($json.remaining > 0 && Number($json.n) < Number($env.MAX_POSTS_PER_RUN || 5)) ? 1 : 0 }}",
+              "rightValue": 0
+            }
+          ]
+        },
+        "options": {}
+      },
+      "position": [
+        3120,
+        200
+      ]
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000011",
+      "name": "Pause between posts",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ (() => { const a = Number($env.POST_PAUSE_MIN_SEC || 300), b = Number($env.POST_PAUSE_MAX_SEC || 900); return Math.floor(a + Math.random() * Math.max(0, b - a)); })() }}",
+        "unit": "seconds"
+      },
+      "position": [
+        3360,
+        200
+      ]
+    },
+    {
+      "id": "c0000004-0000-4000-8000-000000000012",
+      "name": "Start next video",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "ttPublishFolder000004"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "position": [
+        3600,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "When called": {
+      "main": [
+        [
+          {
+            "node": "Pick next",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual start": {
+      "main": [
+        [
+          {
+            "node": "Pick next",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick next": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Log processing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log processing": {
+      "main": [
+        [
+          {
+            "node": "Extract frames",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract frames": {
+      "main": [
+        [
+          {
+            "node": "AI copy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI copy": {
+      "main": [
+        [
+          {
+            "node": "ffmpeg variant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ffmpeg variant": {
+      "main": [
+        [
+          {
+            "node": "Add music",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add music": {
+      "main": [
+        [
+          {
+            "node": "Get tokens",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get tokens": {
+      "main": [
+        [
+          {
+            "node": "Token logic",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token logic": {
+      "main": [
+        [
+          {
+            "node": "Save tokens",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save tokens": {
+      "main": [
+        [
+          {
+            "node": "Upload to TikTok",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to TikTok": {
+      "main": [
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish": {
+      "main": [
+        [
+          {
+            "node": "More videos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fail": {
+      "main": [
+        [
+          {
+            "node": "Telegram alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "More videos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "More videos?": {
+      "main": [
+        [
+          {
+            "node": "Pause between posts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Pause between posts": {
+      "main": [
+        [
+          {
+            "node": "Start next video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

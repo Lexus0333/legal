@@ -1,0 +1,632 @@
+{
+  "id": "ttConnect000001",
+  "name": "01 TikTok - Connect account",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "nodes": [
+    {
+      "id": "3d0937f8-081d-4f8c-a4a1-39ecf7584fe2",
+      "name": "Start (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "tiktok-start",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "b8999f5d-8952-48bb-99c3-9705caad64f2"
+    },
+    {
+      "id": "c0000001-0000-4000-8000-000000000108",
+      "name": "Check ticket",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Билет на подключение выдаёт панель (после проверки ключа); он одноразовый и живёт 2 минуты. Ключ доступа в адресе не нужен.\nconst fs = require('fs');\nconst t = String(($input.first().json.query || {}).ticket || '');\nconst no = [{ json: { valid: false } }];\nif (!/^[a-f0-9]{32}$/.test(t)) return no;\nconst f = '/files/tickets/' + t + '.json';\nlet x; try { x = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { return no; }\ntry { fs.unlinkSync(f); } catch (e) { return no; }   // если файл уже забрал другой запрос, билет недействителен\nif (!x.exp || x.exp < Date.now() || !/^[a-z0-9_-]{1,40}$/.test(String(x.account))) return no;\nreturn [{ json: { valid: true, account: x.account } }];"
+      }
+    },
+    {
+      "id": "c0000001-0000-4000-8000-0000000001f3",
+      "name": "Ticket ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "t1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c0000001-0000-4000-8000-000000000109",
+      "name": "Render ticket denied",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        160
+      ],
+      "parameters": {
+        "jsCode": "const esc = s => String(s).replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst SITE = String($env.SITE_URL || 'https://lexus0333.github.io/legal').replace(/\\/$/, '');\nconst CSS = 'body{font-family:system-ui,-apple-system,\"Segoe UI\",sans-serif;max-width:560px;margin:48px auto;padding:0 18px;line-height:1.6;color:#1d2129;background:#fff}'\n  + 'h1{font-size:24px;margin:0 0 8px}.muted{color:#667085;font-size:14px}ul{padding-left:20px}a{color:#0b57d0}'\n  + '.btn{display:inline-block;background:#0b57d0;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;margin:14px 0}'\n  + '.box{border:1px solid #e4e7ec;border-radius:12px;padding:14px 16px;margin:14px 0}'\n  + '@media (prefers-color-scheme:dark){body{background:#101215;color:#e6e8eb}.muted{color:#9aa4b2}a{color:#7ab0ff}.btn{background:#7ab0ff;color:#0b1220}.box{border-color:#2a2f37}}';\nconst FOOT = '<p class=\"muted\">EXE Agency Publisher · <a href=\"' + SITE + '/privacy.html\">Privacy Policy</a> · <a href=\"' + SITE + '/terms.html\">Terms of Service</a> · Questions: <a href=\"mailto:gu1gu2gu4@gmail.com\">gu1gu2gu4@gmail.com</a></p>';\nconst page = (title, body, status) => [{ json: { _status: status, html: '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\"><title>' + esc(title) + '</title><style>' + CSS + '</style></head><body>' + body + FOOT + '</body></html>' } }];\nreturn page('This connection link is no longer valid', '<h1>This connection link is no longer valid</h1><p>Connection links from the console work once and expire after two minutes. Go back to the console and press “Connect” again.</p><p><a class=\"btn\" href=\"' + SITE + '/console.html\">Open the console</a></p>', 403);"
+      }
+    },
+    {
+      "id": "c0000001-0000-4000-8000-000000000101",
+      "name": "Make state",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -60
+      ],
+      "parameters": {
+        "jsCode": "const stateKey = () => require('crypto').createHmac('sha256', String($env.CONNECT_SECRET)).update('state-v1').digest();\n// Подписанный state: подключить аккаунт под чужим именем, подставив свой state, нельзя.\nconst crypto = require('crypto');\nconst account = String($input.first().json.account || '');\nconst sig = crypto.createHmac('sha256', stateKey()).update('acct:' + account).digest('hex').slice(0, 32);\nreturn [{ json: { state: account + '.' + sig } }];"
+      }
+    },
+    {
+      "id": "c38ca528-6a90-4ed4-beed-ca0979503f72",
+      "name": "Go to TikTok",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        -60
+      ],
+      "parameters": {
+        "respondWith": "redirect",
+        "redirectURL": "={{ 'https://www.tiktok.com/v2/auth/authorize/?client_key=' + $env.TIKTOK_CLIENT_KEY + '&scope=' + encodeURIComponent('user.info.basic,video.publish') + '&response_type=code&redirect_uri=' + encodeURIComponent('https://' + $env.N8N_HOST + '/webhook/tiktok-callback') + '&state=' + encodeURIComponent($json.state) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "21fad78c-a851-4dd7-a3fe-ca1c1ca0e08c",
+      "name": "Callback (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "tiktok-callback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "3f37093f-bb77-4b58-9db3-bb9da3da1ea7"
+    },
+    {
+      "id": "c0000001-0000-4000-8000-000000000102",
+      "name": "Check state",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        110,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const stateKey = () => require('crypto').createHmac('sha256', String($env.CONNECT_SECRET)).update('state-v1').digest();\n// Проверка state из TikTok: подписанное имя аккаунта (подключение из панели) или одноразовое приглашение.\nconst crypto = require('crypto');\nconst fs = require('fs');\nconst q = $input.first().json.query || {};\nconst state = String(q.state || '');\nconst fail = (reason, invite) => [{ json: { valid: false, reason, invite: invite || '' } }];\nconst NAME = /^[a-z0-9_-]{1,40}$/;\nif (state.startsWith('inv.')) {\n  const token = state.slice(4);\n  if (!/^[a-f0-9]{48}$/.test(token)) return fail('invite');\n  let inv; try { inv = JSON.parse(fs.readFileSync('/files/invites/' + token + '.json', 'utf8')); } catch (e) { return fail('invite'); }\n  if (inv.status === 'revoked' || inv.used_at) return fail('invite_used');\n  if (Date.parse(inv.expires_at) < Date.now()) return fail('invite_expired');\n  if (!NAME.test(String(inv.account))) return fail('invite');\n  if (q.error) return fail('denied', token);\n  if (!q.code) return fail('nocode', token);\n  return [{ json: { valid: true, account: inv.account, invite: token } }];\n}\nif (q.error) return fail('denied');\nif (!q.code) return fail('nocode');\nconst i = state.lastIndexOf('.');\nconst account = state.slice(0, i), sig = state.slice(i + 1);\nif (i < 1 || !NAME.test(account)) return fail('state');\nconst exp = crypto.createHmac('sha256', stateKey()).update('acct:' + account).digest('hex').slice(0, 32);\nconst a = Buffer.from(sig), b = Buffer.from(exp);\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return fail('state');\nreturn [{ json: { valid: true, account, invite: '' } }];"
+      }
+    },
+    {
+      "id": "c0000001-0000-4000-8000-0000000001f1",
+      "name": "State ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "s1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "109965b0-121b-4a55-9283-dc5317a13757",
+      "name": "Exchange code for tokens",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.tiktokapis.com/v2/oauth/token/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_key",
+              "value": "={{ $env.TIKTOK_CLIENT_KEY }}"
+            },
+            {
+              "name": "client_secret",
+              "value": "={{ $env.TIKTOK_CLIENT_SECRET }}"
+            },
+            {
+              "name": "code",
+              "value": "={{ $('Callback (GET)').first().json.query.code }}"
+            },
+            {
+              "name": "grant_type",
+              "value": "authorization_code"
+            },
+            {
+              "name": "redirect_uri",
+              "value": "={{ 'https://' + $env.N8N_HOST + '/webhook/tiktok-callback' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c0000001-0000-4000-8000-0000000001e0",
+      "name": "Get user info",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        400
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "GET",
+        "url": "https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Exchange code for tokens').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      }
+    },
+    {
+      "id": "c0000001-0000-4000-8000-000000000103",
+      "name": "Build row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst tkey = () => crypto.scryptSync(String($env.N8N_ENCRYPTION_KEY || $env.CONNECT_SECRET || ''), 'tt-tokens-v1', 32);\nconst encTok = s => {\n  if (!s) return s;\n  const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', tkey(), iv);\n  const d = Buffer.concat([c.update(String(s), 'utf8'), c.final()]);\n  return 'enc:' + iv.toString('base64') + ':' + c.getAuthTag().toString('base64') + ':' + d.toString('base64');\n};\nconst decTok = s => {\n  if (!s || !String(s).startsWith('enc:')) return s;\n  const p = String(s).split(':'), k = crypto.createDecipheriv('aes-256-gcm', tkey(), Buffer.from(p[1], 'base64'));\n  k.setAuthTag(Buffer.from(p[2], 'base64'));\n  return Buffer.concat([k.update(Buffer.from(p[3], 'base64')), k.final()]).toString('utf8');\n};\nconst fs = require('fs');\nconst t = $('Exchange code for tokens').first().json;\nif (!t.access_token) throw new Error('TikTok did not return a token.');\nconst account = $('Check state').first().json.account;\n// Кто подключился: ник и аватар TikTok (необязательно: если запрос не удался, подключение всё равно сохраняется).\nlet who = {};\ntry { const u = $input.first().json; who = (u && u.data && u.data.user) || {}; } catch (e) { who = {}; }\nconst openId = String(t.open_id || who.open_id || '');\n// Один и тот же TikTok-аккаунт нельзя подключить под двумя именами: иначе он получит двойные публикации.\ntry {\n  for (const f of fs.readdirSync('/files/identity')) {\n    const x = JSON.parse(fs.readFileSync('/files/identity/' + f, 'utf8'));\n    if (openId && x.open_id === openId && f.slice(0, -5) !== account) throw new Error('DUPLICATE');\n  }\n} catch (e) { if (String(e.message) === 'DUPLICATE') throw e; }\nconst now = Date.now();\nreturn [{ json: {\n  account,\n  open_id: openId,\n  access_token: encTok(t.access_token),\n  refresh_token: encTok(t.refresh_token),\n  access_expires_at: now + t.expires_in * 1000,\n  refresh_expires_at: now + t.refresh_expires_in * 1000,\n  identity: { open_id: openId, display_name: String(who.display_name || '').slice(0, 80), avatar_url: String(who.avatar_url || '').slice(0, 300) },\n}}];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "bbe69f73-031d-4d1e-ae91-69ec7aa8fb2b",
+      "name": "Save account (upsert)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        400
+      ],
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SSWsIdTjYaqpXDiV"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "account",
+              "condition": "eq",
+              "keyValue": "={{ $json.account }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [],
+          "value": {
+            "account": "={{ $json.account }}",
+            "open_id": "={{ $json.open_id }}",
+            "access_token": "={{ $json.access_token }}",
+            "refresh_token": "={{ $json.refresh_token }}",
+            "access_expires_at": "={{ $json.access_expires_at }}",
+            "refresh_expires_at": "={{ $json.refresh_expires_at }}"
+          }
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c0000001-0000-4000-8000-000000000104",
+      "name": "Mark invite used",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// Приглашение становится использованным и сохраняется личность подключённого TikTok-аккаунта: только после успешного сохранения токенов.\nconst fs = require('fs');\nconst c = $('Check state').first().json;\nconst b = $('Build row').first().json;\ntry {\n  fs.mkdirSync('/files/identity', { recursive: true });\n  const f = '/files/identity/' + b.account + '.json', tmp = f + '.tmp';\n  fs.writeFileSync(tmp, JSON.stringify(Object.assign({}, b.identity, { connected_at: new Date().toISOString(), via: c.invite ? 'invite' : 'panel' }))); fs.renameSync(tmp, f);\n} catch (e) { /* не критично */ }\nif (c.invite) {\n  const f = '/files/invites/' + c.invite + '.json';\n  try { const inv = JSON.parse(fs.readFileSync(f, 'utf8')); inv.status = 'used'; inv.used_at = new Date().toISOString(); const t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(inv)); fs.renameSync(t, f); } catch (e) { /* файла нет */ }\n}\nreturn [{ json: $input.first().json }];"
+      }
+    },
+    {
+      "id": "c0000001-0000-4000-8000-000000000105",
+      "name": "Render done",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const esc = s => String(s).replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst SITE = String($env.SITE_URL || 'https://lexus0333.github.io/legal').replace(/\\/$/, '');\nconst CSS = 'body{font-family:system-ui,-apple-system,\"Segoe UI\",sans-serif;max-width:560px;margin:48px auto;padding:0 18px;line-height:1.6;color:#1d2129;background:#fff}'\n  + 'h1{font-size:24px;margin:0 0 8px}.muted{color:#667085;font-size:14px}ul{padding-left:20px}a{color:#0b57d0}'\n  + '.btn{display:inline-block;background:#0b57d0;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;margin:14px 0}'\n  + '.box{border:1px solid #e4e7ec;border-radius:12px;padding:14px 16px;margin:14px 0}'\n  + '@media (prefers-color-scheme:dark){body{background:#101215;color:#e6e8eb}.muted{color:#9aa4b2}a{color:#7ab0ff}.btn{background:#7ab0ff;color:#0b1220}.box{border-color:#2a2f37}}';\nconst FOOT = '<p class=\"muted\">EXE Agency Publisher · <a href=\"' + SITE + '/privacy.html\">Privacy Policy</a> · <a href=\"' + SITE + '/terms.html\">Terms of Service</a> · Questions: <a href=\"mailto:gu1gu2gu4@gmail.com\">gu1gu2gu4@gmail.com</a></p>';\nconst page = (title, body, status) => [{ json: { _status: status, html: '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\"><title>' + esc(title) + '</title><style>' + CSS + '</style></head><body>' + body + FOOT + '</body></html>' } }];\nconst c = $('Check state').first().json;\nconst b = $('Build row').first().json;\nconst nick = b.identity && b.identity.display_name ? ' (TikTok name: <b>' + esc(b.identity.display_name) + '</b>)' : '';\nif (c.invite) {\n  return page('Account connected', '<h1>Thank you, your account is connected</h1><p>The TikTok account <b>' + esc(b.account) + '</b>' + nick + ' is now connected to EXE Agency Publisher. You can close this tab.</p>'\n    + '<div class=\"box muted\">You stay in control: you can remove our access at any time in the TikTok app under Settings and privacy, Security and permissions, Apps and services.</div>', 200);\n}\nreturn page('Account connected', '<h1>Account connected</h1><p>TikTok account <b>' + esc(b.account) + '</b>' + nick + ' is now connected to EXE Agency Publisher.</p><p><a href=\"' + SITE + '/console.html\">Back to the console</a></p>', 200);"
+      }
+    },
+    {
+      "id": "c0000001-0000-4000-8000-000000000106",
+      "name": "Render invalid",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        620
+      ],
+      "parameters": {
+        "jsCode": "const esc = s => String(s).replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst SITE = String($env.SITE_URL || 'https://lexus0333.github.io/legal').replace(/\\/$/, '');\nconst CSS = 'body{font-family:system-ui,-apple-system,\"Segoe UI\",sans-serif;max-width:560px;margin:48px auto;padding:0 18px;line-height:1.6;color:#1d2129;background:#fff}'\n  + 'h1{font-size:24px;margin:0 0 8px}.muted{color:#667085;font-size:14px}ul{padding-left:20px}a{color:#0b57d0}'\n  + '.btn{display:inline-block;background:#0b57d0;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;margin:14px 0}'\n  + '.box{border:1px solid #e4e7ec;border-radius:12px;padding:14px 16px;margin:14px 0}'\n  + '@media (prefers-color-scheme:dark){body{background:#101215;color:#e6e8eb}.muted{color:#9aa4b2}a{color:#7ab0ff}.btn{background:#7ab0ff;color:#0b1220}.box{border-color:#2a2f37}}';\nconst FOOT = '<p class=\"muted\">EXE Agency Publisher · <a href=\"' + SITE + '/privacy.html\">Privacy Policy</a> · <a href=\"' + SITE + '/terms.html\">Terms of Service</a> · Questions: <a href=\"mailto:gu1gu2gu4@gmail.com\">gu1gu2gu4@gmail.com</a></p>';\nconst page = (title, body, status) => [{ json: { _status: status, html: '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\"><title>' + esc(title) + '</title><style>' + CSS + '</style></head><body>' + body + FOOT + '</body></html>' } }];\nconst j = $input.first().json || {};\nlet reason = 'invite', invite = '';\nif (j.valid === false) { reason = j.reason; invite = j.invite || ''; }\nelse {\n  const msg = String((j.error && (j.error.message || j.error)) || '');\n  reason = /DUPLICATE/.test(msg) ? 'duplicate' : 'exchange';\n  try { invite = $('Check state').first().json.invite || ''; } catch (e) { invite = ''; }\n}\nconst M = {\n  denied: ['Access was not granted', 'You chose not to give access, so nothing was connected. If that was a mistake, you can try again.'],\n  invite_used: ['This invitation was already used', 'The account behind this invitation is already connected. If you need a new link, ask the person who invited you.'],\n  invite_expired: ['This invitation has expired', 'Ask the person who invited you to send a new link.'],\n  exchange: ['The connection did not complete', 'TikTok did not confirm the connection. Please try again and approve access.'],\n  duplicate: ['This TikTok account is already connected', 'This TikTok account is already linked to another name in our service, so it was not connected again. If this is unexpected, contact the person who invited you.'],\n};\nconst m = M[reason] || ['This link is not valid', 'The link is incomplete, expired or was replaced by a newer one. Ask the person who invited you for a new link.'];\nconst retry = (invite && (reason === 'denied' || reason === 'exchange' || reason === 'nocode')) ? '<p><a class=\"btn\" href=\"/webhook/tiktok-invite?t=' + esc(invite) + '\">Try again</a></p>' : '';\nreturn page(m[0], '<h1>' + esc(m[0]) + '</h1><p>' + esc(m[1]) + '</p>' + retry, 400);"
+      }
+    },
+    {
+      "id": "c0000001-0000-4000-8000-0000000001f0",
+      "name": "Invite (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        700
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "tiktok-invite",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "c0000001-0000-4000-8000-0000000001a1"
+    },
+    {
+      "id": "c0000001-0000-4000-8000-000000000107",
+      "name": "Open invite",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        700
+      ],
+      "parameters": {
+        "jsCode": "const esc = s => String(s).replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst SITE = String($env.SITE_URL || 'https://lexus0333.github.io/legal').replace(/\\/$/, '');\nconst CSS = 'body{font-family:system-ui,-apple-system,\"Segoe UI\",sans-serif;max-width:560px;margin:48px auto;padding:0 18px;line-height:1.6;color:#1d2129;background:#fff}'\n  + 'h1{font-size:24px;margin:0 0 8px}.muted{color:#667085;font-size:14px}ul{padding-left:20px}a{color:#0b57d0}'\n  + '.btn{display:inline-block;background:#0b57d0;color:#fff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;margin:14px 0}'\n  + '.box{border:1px solid #e4e7ec;border-radius:12px;padding:14px 16px;margin:14px 0}'\n  + '@media (prefers-color-scheme:dark){body{background:#101215;color:#e6e8eb}.muted{color:#9aa4b2}a{color:#7ab0ff}.btn{background:#7ab0ff;color:#0b1220}.box{border-color:#2a2f37}}';\nconst FOOT = '<p class=\"muted\">EXE Agency Publisher · <a href=\"' + SITE + '/privacy.html\">Privacy Policy</a> · <a href=\"' + SITE + '/terms.html\">Terms of Service</a> · Questions: <a href=\"mailto:gu1gu2gu4@gmail.com\">gu1gu2gu4@gmail.com</a></p>';\nconst page = (title, body, status) => [{ json: { _status: status, html: '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\"><title>' + esc(title) + '</title><style>' + CSS + '</style></head><body>' + body + FOOT + '</body></html>' } }];\nconst fs = require('fs');\nconst t = String(($input.first().json.query || {}).t || '');\nconst bad = (title, text, status) => page(title, '<h1>' + esc(title) + '</h1><p>' + esc(text) + '</p>', status);\nif (!/^[a-f0-9]{48}$/.test(t)) return bad('This link is not valid', 'The link is incomplete or was replaced by a newer one. Ask the person who invited you for a new link.', 404);\nconst f = '/files/invites/' + t + '.json';\nlet inv; try { inv = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { return bad('This link is not valid', 'The link is incomplete or was replaced by a newer one. Ask the person who invited you for a new link.', 404); }\nif (inv.status === 'revoked') return bad('This invitation was cancelled', 'Ask the person who invited you to send a new link.', 410);\nif (inv.used_at) return bad('This invitation was already used', 'The account behind this invitation is already connected. If you need a new link, ask the person who invited you.', 410);\nif (Date.parse(inv.expires_at) < Date.now()) return bad('This invitation has expired', 'Ask the person who invited you to send a new link.', 410);\n// отмечаем открытие ссылки\nif (!inv.opened_at) inv.opened_at = new Date().toISOString();\ninv.opens = (inv.opens || 0) + 1;\ntry { const tmp = f + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(inv)); fs.renameSync(tmp, f); } catch (e) { /* не критично */ }\nconst authorize = 'https://www.tiktok.com/v2/auth/authorize/?client_key=' + encodeURIComponent($env.TIKTOK_CLIENT_KEY) + '&scope=' + encodeURIComponent('user.info.basic,video.publish') + '&response_type=code&redirect_uri=' + encodeURIComponent('https://' + $env.N8N_HOST + '/webhook/tiktok-callback') + '&state=' + encodeURIComponent('inv.' + t);\nconst until = new Date(inv.expires_at).toUTCString();\nreturn page('Connect your TikTok account',\n  '<h1>Connect your TikTok account</h1>'\n  + '<p>You have been invited to connect the TikTok account <b>' + esc(inv.account) + '</b> to <b>EXE Agency Publisher</b>, a private tool we use to publish videos to our own and our partners\\' accounts.</p>'\n  + '<div class=\"box\"><b>What happens next</b><ul><li>You sign in on TikTok and approve access. We never see your password.</li>'\n  + '<li>We receive your TikTok ID and basic profile info (display name and avatar).</li>'\n  + '<li>We get permission to publish videos to this account on your behalf.</li></ul></div>'\n  + '<p><a class=\"btn\" href=\"' + esc(authorize) + '\">Continue to TikTok</a></p>'\n  + '<p class=\"muted\">You can remove our access at any time in the TikTok app under Settings and privacy, Security and permissions, Apps and services. This link works once and is valid until ' + esc(until) + '.</p>', 200);"
+      }
+    },
+    {
+      "id": "c0000001-0000-4000-8000-0000000001f2",
+      "name": "Page",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        400
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": "={{ $json._status }}",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              },
+              {
+                "name": "Referrer-Policy",
+                "value": "no-referrer"
+              },
+              {
+                "name": "X-Robots-Tag",
+                "value": "noindex, nofollow"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start (GET)": {
+      "main": [
+        [
+          {
+            "node": "Check ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check ticket": {
+      "main": [
+        [
+          {
+            "node": "Ticket ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ticket ok?": {
+      "main": [
+        [
+          {
+            "node": "Make state",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Render ticket denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make state": {
+      "main": [
+        [
+          {
+            "node": "Go to TikTok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render ticket denied": {
+      "main": [
+        [
+          {
+            "node": "Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback (GET)": {
+      "main": [
+        [
+          {
+            "node": "Check state",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check state": {
+      "main": [
+        [
+          {
+            "node": "State ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "State ok?": {
+      "main": [
+        [
+          {
+            "node": "Exchange code for tokens",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Render invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exchange code for tokens": {
+      "main": [
+        [
+          {
+            "node": "Get user info",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Render invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get user info": {
+      "main": [
+        [
+          {
+            "node": "Build row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build row": {
+      "main": [
+        [
+          {
+            "node": "Save account (upsert)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Render invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save account (upsert)": {
+      "main": [
+        [
+          {
+            "node": "Mark invite used",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark invite used": {
+      "main": [
+        [
+          {
+            "node": "Render done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render done": {
+      "main": [
+        [
+          {
+            "node": "Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render invalid": {
+      "main": [
+        [
+          {
+            "node": "Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Invite (GET)": {
+      "main": [
+        [
+          {
+            "node": "Open invite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Open invite": {
+      "main": [
+        [
+          {
+            "node": "Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

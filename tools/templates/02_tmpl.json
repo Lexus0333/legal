@@ -1,0 +1,965 @@
+{
+  "id": "ttPosting000002",
+  "name": "02 TikTok - Posting",
+  "nodes": [
+    {
+      "id": "891cf4ec-8640-4903-a463-b45603fa830f",
+      "name": "Every 30 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "22a28948-8036-448d-9480-fec389a6d60f",
+      "name": "Get Ready rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1_agp1WdAz-O3mkyOdT2Odax7SEVHXszZ-HxbAwofizQ"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Videos"
+        },
+        "operation": "read",
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "Ready"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "b207a6ee-0c58-46da-b915-c7516e5f5566",
+      "name": "Pick next",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Берём одну готовую к публикации строку (время публикации наступило).\nconst now = Date.now();\nconst rows = $input.all().map(i => i.json).filter(r =>\n  String(r.status || '').trim() === 'Ready' &&\n  (!r.publish_at || new Date(r.publish_at).getTime() <= now));\nif (!rows.length) return [];\nconst r = rows[0];\nconst m = String(r.drive_url || '').match(/\\/d\\/([\\w-]+)|[?&]id=([\\w-]+)/);\nif (!m) throw new Error('Row ' + r.row_number + ': cannot read Drive file id from drive_url');\nif (!String(r.account || '').trim()) throw new Error('Row ' + r.row_number + ': account is empty');\nif (!String(r.hook || '').trim()) throw new Error('Row ' + r.row_number + ': hook is empty');\nreturn [{ json: { ...r,\n  rid: Number(r.row_number),\n  file_id: m[1] || m[2],\n  trim: Math.max(0, Number(r.trim_start) || 0),\n  maxlen: Math.max(0, Number(r.max_len) || 0),\n}}];"
+      }
+    },
+    {
+      "id": "be6d41ca-8eda-4386-9bd5-81f4235bf653",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "client_key",
+              "value": "={{ $env.TIKTOK_CLIENT_KEY }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "client_secret",
+              "value": "={{ $env.TIKTOK_CLIENT_SECRET }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "privacy",
+              "value": "={{ $env.TIKTOK_PRIVACY || 'SELF_ONLY' }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "telegram_chat_id",
+              "value": "={{ $env.TELEGRAM_CHAT_ID }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "d89602ab-9796-44b4-bca8-84778e0d877c",
+      "name": "Mark Processing",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1_agp1WdAz-O3mkyOdT2Odax7SEVHXszZ-HxbAwofizQ"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Videos"
+        },
+        "operation": "update",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "Processing",
+            "row_number": "={{ $('Pick next').first().json.row_number }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "a87b4289-6bc7-43bb-8326-1aeba274edcb",
+      "name": "Random delay 0-15 min",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ Math.floor(Math.random() * Number($env.POST_JITTER_SEC || 900)) }}",
+        "unit": "seconds"
+      },
+      "webhookId": "4c4e5e84-b71c-4486-80dd-b36594a34ccb"
+    },
+    {
+      "id": "15e04f6f-5fbd-4589-b500-cb199db7163c",
+      "name": "Download from Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1320,
+        0
+      ],
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('Pick next').first().json.file_id }}"
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "",
+          "name": "Google Drive account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "964eaf06-7131-42c9-94c1-0f0b2b63dd1a",
+      "name": "Save video",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        0
+      ],
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/files/in/{{ $('Pick next').first().json.rid }}.mp4",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "8f090c61-e48f-419c-8420-0fca8995a344",
+      "name": "Hook to file",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const r = $('Pick next').first().json;\nconst bin = await this.helpers.prepareBinaryData(Buffer.from(String(r.hook).trim() + '\\n', 'utf8'), 'hook.txt', 'text/plain');\nreturn [{ json: r, binary: { data: bin } }];"
+      }
+    },
+    {
+      "id": "94f4da59-1d80-478c-b481-9a9a285308b3",
+      "name": "Save hook",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1980,
+        0
+      ],
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/files/in/{{ $('Pick next').first().json.rid }}.txt",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "1daa24b8-51b8-49b7-83a7-fa6b7bb13fa3",
+      "name": "ffmpeg variant",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        0
+      ],
+      "parameters": {
+        "command": "=sh /files/scripts/make_variants.sh /files/in/{{ $('Pick next').first().json.rid }}.mp4 /files/out/{{ $('Pick next').first().json.rid }} /files/in/{{ $('Pick next').first().json.rid }}.txt {{ $('Pick next').first().json.trim }} {{ $('Pick next').first().json.maxlen }}"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "689cb67f-4a02-4804-bcd1-9deeb8e3240a",
+      "name": "Get tokens",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2420,
+        0
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "tiktok_accounts"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "account",
+              "condition": "eq",
+              "keyValue": "={{ $('Pick next').first().json.account }}"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": 1
+      },
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "0b74ad1b-d616-4e96-9f18-47e107a92bc5",
+      "name": "Token logic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Берём токен аккаунта; если скоро истекает - обновляем через refresh_token.\nconst cfg = $('Config').first().json;\nconst acc = $('Pick next').first().json.account;\nconst row = $input.first().json;\nif (!row || !row.access_token) throw new Error('Account \"' + acc + '\" is not connected. Open the connect link (workflow 01).');\nconst now = Date.now();\nif (Number(row.refresh_expires_at) < now) throw new Error('Refresh token expired for \"' + acc + '\". Reconnect the account.');\nlet t = { access_token: row.access_token, refresh_token: row.refresh_token, access_expires_at: Number(row.access_expires_at), refresh_expires_at: Number(row.refresh_expires_at) };\nif (t.access_expires_at - now < 10 * 60 * 1000) {\n  const body = new URLSearchParams({ client_key: cfg.client_key, client_secret: cfg.client_secret, grant_type: 'refresh_token', refresh_token: row.refresh_token }).toString();\n  const r = await this.helpers.httpRequest({ method: 'POST', url: 'https://open.tiktokapis.com/v2/oauth/token/', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, json: true });\n  if (!r.access_token) throw new Error('Token refresh failed: ' + JSON.stringify(r));\n  t = { access_token: r.access_token, refresh_token: r.refresh_token || row.refresh_token, access_expires_at: now + r.expires_in * 1000, refresh_expires_at: r.refresh_expires_in ? now + r.refresh_expires_in * 1000 : t.refresh_expires_at };\n}\nreturn [{ json: { account: acc, ...t } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "1cadca26-0b4d-4eef-b84d-194551d32693",
+      "name": "Save tokens",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        2860,
+        0
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "tiktok_accounts"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "account",
+              "condition": "eq",
+              "keyValue": "={{ $json.account }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "access_token": "={{ $json.access_token }}",
+            "refresh_token": "={{ $json.refresh_token }}",
+            "access_expires_at": "={{ $json.access_expires_at }}",
+            "refresh_expires_at": "={{ $json.refresh_expires_at }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        }
+      }
+    },
+    {
+      "id": "7af79307-1c79-4ff8-bd03-82374281529b",
+      "name": "Gemini caption",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3080,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: 'Write a TikTok caption for a video. Topic: ' + $('Pick next').first().json.topic + '. On-screen hook: ' + $('Pick next').first().json.hook + '. Use the same language as the hook. Caption up to 120 characters, no hashtags inside it, plus 3-5 relevant hashtags. No false claims. Reply as JSON: {\"caption\": string, \"hashtags\": [string]}' }] }], generationConfig: { responseMimeType: 'application/json' } }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Gemini API key (header x-goog-api-key)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "ba7eb25c-a67d-4bf3-9255-1e83535174bf",
+      "name": "Read variant",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        3300,
+        0
+      ],
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "=/files/out/{{ $('Pick next').first().json.rid }}/{{ $('Pick next').first().json.rid }}_v1.mp4",
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "50bbab53-f3fc-4886-91b3-3036a17458d4",
+      "name": "Upload to TikTok",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const cfg = $('Config').first().json;\nconst tok = $('Token logic').first().json.access_token;\nconst row = $('Pick next').first().json;\nconst g = $('Gemini caption').first().json;\n\nlet cap = { caption: row.topic || '', hashtags: [] };\ntry { cap = JSON.parse(g.candidates[0].content.parts[0].text); } catch (e) { /* оставляем тему как подпись */ }\nconst tags = (cap.hashtags || []).map(h => '#' + String(h).replace(/^#/, '').replace(/\\s+/g, '')).join(' ');\nconst title = (String(cap.caption || '') + ' ' + tags).trim().slice(0, 2200);\n\nconst fs0 = require('fs');\nconst size = fs0.statSync('/files/out/' + row.rid + '/' + row.rid + '_v1.mp4').size;\nconst api = async (path, body) => {\n  try {\n    return await this.helpers.httpRequest({ method: 'POST', url: 'https://open.tiktokapis.com' + path,\n      headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json; charset=UTF-8' }, body, json: true });\n  } catch (e) {\n    const b = (e.response && (e.response.body || e.response.data)) || (e.context && e.context.data) || e.description || '';\n    throw new Error(path + ': ' + e.message + ' ' + (typeof b === 'string' ? b : JSON.stringify(b)).slice(0, 500));\n  }\n};\nconst check = (r, what) => { if (r.error && r.error.code && r.error.code !== 'ok') throw new Error(what + ': ' + JSON.stringify(r.error)); return r; };\n\nconst info = check(await api('/v2/post/publish/creator_info/query/', {}), 'creator_info');\nconst allowed = (info.data && info.data.privacy_level_options) || [];\nconst privacy = cfg.privacy;\nif (allowed.length && !allowed.includes(privacy)) throw new Error('Privacy ' + privacy + ' not allowed for this account now. Allowed: ' + allowed.join(', '));\n\n// Правила TikTok: до 64 MB - одним куском; больше - куски по 32 MB, остаток уходит в последний.\nconst MB = 1024 * 1024;\nlet chunk = size, count = 1;\nif (size > 64 * MB) { chunk = 32 * MB; count = Math.floor(size / chunk); }\n\nconst init = check(await api('/v2/post/publish/video/init/', {\n  post_info: { title, privacy_level: privacy, disable_duet: false, disable_comment: false, disable_stitch: false, is_aigc: true },\n  source_info: { source: 'FILE_UPLOAD', video_size: size, chunk_size: chunk, total_chunk_count: count },\n}), 'init');\nconst { publish_id, upload_url } = init.data;\n\nconst fs = require('fs');\nconst https = require('https');\nconst filePath = '/files/out/' + row.rid + '/' + row.rid + '_v1.mp4';\nconst putChunk = (start, end) => new Promise((resolve, reject) => {\n  const m = String(upload_url).match(/^https:\\/\\/([^\\/]+)(\\/.*)$/);\n  if (!m) return reject(new Error('bad upload_url'));\n  const req = https.request({ method: 'PUT', hostname: m[1], path: m[2],\n    headers: { 'Content-Type': 'video/mp4', 'Content-Length': end - start + 1, 'Content-Range': 'bytes ' + start + '-' + end + '/' + size } },\n    res => { let b = ''; res.on('data', d => { b += d; }); res.on('end', () => (res.statusCode < 300 ? resolve() : reject(new Error('HTTP ' + res.statusCode + ' ' + b.slice(0, 300))))); });\n  req.on('error', reject);\n  fs.createReadStream(filePath, { start, end }).pipe(req);\n});\nfor (let i = 0; i < count; i++) {\n  const start = i * chunk;\n  const end = i === count - 1 ? size - 1 : start + chunk - 1;\n  let lastErr = '';\n  for (let attempt = 1; attempt <= 3; attempt++) {\n    try { await putChunk(start, end); lastErr = ''; break; }\n    catch (e) { lastErr = 'upload chunk ' + (i + 1) + '/' + count + ' attempt ' + attempt + ': ' + e.message; await new Promise(r => setTimeout(r, 5000)); }\n  }\n  if (lastErr) throw new Error(lastErr);\n}\n\nlet status = 'PROCESSING_UPLOAD', fail = '';\nfor (let k = 0; k < 30; k++) {\n  await new Promise(r => setTimeout(r, 6000));\n  const s = check(await api('/v2/post/publish/status/fetch/', { publish_id }), 'status');\n  status = s.data && s.data.status;\n  if (['PUBLISH_COMPLETE', 'FAILED', 'SEND_TO_USER_INBOX'].includes(status)) { fail = (s.data && s.data.fail_reason) || ''; break; }\n}\nif (status === 'FAILED') throw new Error('TikTok FAILED: ' + fail);\nreturn [{ json: { publish_id, tiktok_status: status, title, privacy,\n  params: JSON.stringify({ hook: row.hook, trim_start: row.trim, max_len: row.maxlen, hook_secs: 2.5, account: row.account }) } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "f2cb274d-5ef9-4ce8-8abe-ff235f22d755",
+      "name": "Mark Posted",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3740,
+        0
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1_agp1WdAz-O3mkyOdT2Odax7SEVHXszZ-HxbAwofizQ"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Videos"
+        },
+        "operation": "update",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.tiktok_status === 'PUBLISH_COMPLETE' ? 'Posted' : 'Check' }}",
+            "caption": "={{ $json.title }}",
+            "publish_id": "={{ $json.publish_id }}",
+            "tiktok_status": "={{ $json.tiktok_status }}",
+            "privacy": "={{ $json.privacy }}",
+            "params": "={{ $json.params }}",
+            "error": "",
+            "processed_at": "={{ $now.toISO() }}",
+            "row_number": "={{ $('Pick next').first().json.row_number }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "caption",
+              "displayName": "caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "publish_id",
+              "displayName": "publish_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tiktok_status",
+              "displayName": "tiktok_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "privacy",
+              "displayName": "privacy",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "params",
+              "displayName": "params",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "processed_at",
+              "displayName": "processed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "f128b98b-6454-42fc-a554-708b777f94bf",
+      "name": "Cleanup files",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        3960,
+        0
+      ],
+      "parameters": {
+        "command": "=rm -rf /files/in/{{ $('Pick next').first().json.rid }}.mp4 /files/in/{{ $('Pick next').first().json.rid }}.txt /files/out/{{ $('Pick next').first().json.rid }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "31ca14ce-4ca1-46f0-a382-690228db08d7",
+      "name": "Mark Error",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2200,
+        400
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1_agp1WdAz-O3mkyOdT2Odax7SEVHXszZ-HxbAwofizQ"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Videos"
+        },
+        "operation": "update",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "Error",
+            "error": "={{ typeof $json.error === 'string' ? $json.error : ($json.error && $json.error.message) || JSON.stringify($json) }}",
+            "processed_at": "={{ $now.toISO() }}",
+            "row_number": "={{ $('Pick next').first().json.row_number }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error",
+              "displayName": "error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "processed_at",
+              "displayName": "processed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "c4f70239-9ec7-4805-8336-12a2f1b132c5",
+      "name": "Telegram alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2420,
+        400
+      ],
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.telegram_chat_id }}",
+        "text": "={{ 'TikTok: error in row ' + $('Pick next').first().json.row_number + ' (' + $('Pick next').first().json.account + '): ' + $json.error }}",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram bot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "c0000002-0000-4000-8000-000000000001",
+      "name": "When called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    }
+  ],
+  "connections": {
+    "Every 30 min": {
+      "main": [
+        [
+          {
+            "node": "Get Ready rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Ready rows": {
+      "main": [
+        [
+          {
+            "node": "Pick next",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick next": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Mark Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Processing": {
+      "main": [
+        [
+          {
+            "node": "Random delay 0-15 min",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Random delay 0-15 min": {
+      "main": [
+        [
+          {
+            "node": "Download from Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download from Drive": {
+      "main": [
+        [
+          {
+            "node": "Save video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save video": {
+      "main": [
+        [
+          {
+            "node": "Hook to file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hook to file": {
+      "main": [
+        [
+          {
+            "node": "Save hook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save hook": {
+      "main": [
+        [
+          {
+            "node": "ffmpeg variant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ffmpeg variant": {
+      "main": [
+        [
+          {
+            "node": "Get tokens",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get tokens": {
+      "main": [
+        [
+          {
+            "node": "Token logic",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token logic": {
+      "main": [
+        [
+          {
+            "node": "Save tokens",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save tokens": {
+      "main": [
+        [
+          {
+            "node": "Gemini caption",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini caption": {
+      "main": [
+        [
+          {
+            "node": "Read variant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read variant": {
+      "main": [
+        [
+          {
+            "node": "Upload to TikTok",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to TikTok": {
+      "main": [
+        [
+          {
+            "node": "Mark Posted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Posted": {
+      "main": [
+        [
+          {
+            "node": "Cleanup files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Error": {
+      "main": [
+        [
+          {
+            "node": "Telegram alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When called": {
+      "main": [
+        [
+          {
+            "node": "Get Ready rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 3600
+  },
+  "pinData": {}
+}

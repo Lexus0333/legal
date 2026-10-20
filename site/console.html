@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https:; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>EXE Agency Publisher - Console</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#1d2129;--muted:#667085;--line:#e4e7ec;--accent:#0b57d0;--ok:#067647;--okbg:#ecfdf3;--warn:#b54708;--warnbg:#fffaeb;--err:#b42318;--errbg:#fef3f2;--info:#175cd3;--infobg:#eff8ff;--row:#f9fafb}
+@media (prefers-color-scheme:dark){:root{--bg:#101215;--card:#181b20;--text:#e6e8eb;--muted:#9aa4b2;--line:#2a2f37;--accent:#7ab0ff;--ok:#6ce9a6;--okbg:#0b2a1b;--warn:#fec84b;--warnbg:#2b2108;--err:#fda29b;--errbg:#2d1311;--info:#84caff;--infobg:#0c2338;--row:#1d2127}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:16px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.between{justify-content:space-between;align-items:center}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input,select,textarea{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0;width:100%}
+textarea{font-size:14px;line-height:1.5;resize:vertical;min-height:190px}
+select{width:auto}
+.grow{flex:1 1 220px}
+button{font:inherit;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:8px 14px}
+@media (prefers-color-scheme:dark){button{color:#0b1220}}
+button.ghost{background:transparent;color:var(--accent)}
+button.link{border:0;background:none;color:var(--muted);padding:2px 4px;text-decoration:underline;font-size:13px}
+button.small{padding:4px 10px;font-size:13px}
+button:disabled{opacity:.5;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:13px;white-space:nowrap}
+th.sort{cursor:pointer;user-select:none}
+th.sort:hover{color:var(--text)}
+td.num,th.num{text-align:right}
+tr.acc-row{cursor:pointer}
+tr.acc-row:hover{background:var(--row)}
+tr.open{background:var(--row)}
+.table-scroll{overflow-x:auto}
+.badge{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px;font-weight:500;white-space:nowrap}
+.b-wait{background:var(--infobg);color:var(--info)}
+.b-ok{background:var(--okbg);color:var(--ok)}
+.b-busy{background:var(--warnbg);color:var(--warn)}
+.b-fail{background:var(--errbg);color:var(--err)}
+.b-mute{background:var(--row);color:var(--muted);border:1px solid var(--line)}
+.msg{margin:8px 0 0;font-size:14px;min-height:1.2em}
+.msg.err{color:var(--err)}.msg.ok{color:var(--ok)}.msg.busy{color:var(--warn)}
+.banner{background:var(--warnbg);color:var(--warn);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:14px}
+.muted{color:var(--muted)}.small{font-size:13px}
+.empty{color:var(--muted);padding:14px 0;text-align:center}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes s{to{transform:rotate(360deg)}}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tab{border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);border-radius:0;padding:10px 14px;white-space:nowrap}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--card);text-align:left;color:var(--text);cursor:pointer}
+.tile:hover{border-color:var(--accent)}
+.tile.on{border-color:var(--accent);background:var(--infobg)}
+.tile b{display:block;font-size:22px;line-height:1.2}
+.tile span{font-size:12px;color:var(--muted)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:99px;padding:3px 11px;font-size:13px}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-color-scheme:dark){.chip.on{color:#0b1220}}
+.bulk{background:var(--infobg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0}
+.steps{display:flex;gap:4px;margin:6px 0;max-width:420px}
+.step{flex:1;text-align:center;font-size:11px;color:var(--muted)}
+.step i{display:block;height:6px;border-radius:3px;background:var(--line);margin-bottom:3px}
+.step.done i{background:var(--ok)}.step.done{color:var(--ok)}
+.detail{padding:12px 6px 14px}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.pager{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:12px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:13px}
+footer{color:var(--muted);font-size:13px;margin-top:24px}
+a{color:var(--accent)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>EXE Agency Publisher</h1>
+  <p class="sub">Publish our own videos to our own TikTok accounts. Internal tool, not offered to the public.</p>
+
+  <section class="card" id="conn-card">
+    <div id="conn-form">
+      <h2>Connect to the publishing server</h2>
+      <p class="muted small" style="margin:0 0 10px">Enter the server address and your access key (provided by the administrator). The key stays in this browser tab only and is never stored on this site.</p>
+      <div class="row">
+        <div class="grow"><label for="server">Server address</label><input id="server" placeholder="https://n8n.example.com" autocomplete="off"></div>
+        <div class="grow"><label for="key">Access key</label><input id="key" type="password" autocomplete="off"></div>
+        <button id="btn-connect">Connect</button>
+      </div>
+    </div>
+    <div id="conn-bar" class="row between" hidden>
+      <span class="small">Connected to <b id="conn-host"></b></span>
+      <button class="link" id="btn-forget">Change server</button>
+    </div>
+    <p class="msg" id="conn-msg"></p>
+  </section>
+
+  <div id="app" hidden>
+    <div class="banner" id="alerts" hidden style="background:#fdecea;color:#8a1c14"></div>
+    <div class="banner" id="banner" hidden>Test mode is on: videos are processed, but nothing is sent to TikTok.</div>
+
+    <section class="card">
+      <div class="row between">
+        <div>
+          <h2>Publish</h2>
+          <p class="muted small" style="margin:0">Videos from the <code>inbox</code> folder are posted in turn with a short random pause. <span id="cap-note"></span></p>
+        </div>
+        <div class="row"><button id="btn-run" disabled>Publish videos</button><button id="btn-refresh" class="ghost">Refresh</button></div>
+      </div>
+      <p class="msg" id="run-msg"></p>
+    </section>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab on" data-tab="accounts">Accounts</button>
+      <button class="tab" data-tab="schedule">Schedule</button>
+      <button class="tab" data-tab="queue">Queue</button>
+      <button class="tab" data-tab="videos">Videos</button>
+      <button class="tab" data-tab="texts">Texts</button>
+      <button class="tab" data-tab="add">Add accounts</button>
+      <button class="tab" data-tab="invites">Invitations</button>
+    </nav>
+
+    <!-- ACCOUNTS -->
+    <section data-pane="accounts">
+      <div class="tiles" id="tiles"></div>
+      <div class="card">
+        <div class="row">
+          <div class="grow" style="max-width:380px"><label for="a-q">Search accounts <span class="muted">(press / to focus)</span></label><input id="a-q" placeholder="Account name or group…" autocomplete="off"></div>
+          <div><label for="a-group">Group</label><select id="a-group"></select></div>
+          <div><label for="a-size">Per page</label><select id="a-size"><option>25</option><option selected>50</option><option>100</option><option>200</option></select></div>
+        </div>
+        <div class="chips" id="chips"></div>
+        <div class="bulk" id="bulk" hidden>
+          <div class="row between" style="margin-bottom:8px"><span><b id="bulk-n">0</b> selected <button class="link" id="bulk-all" hidden></button></span><button class="link" id="bulk-clear">Clear selection</button></div>
+          <div class="row">
+            <div><label for="bulk-group">Set group (empty = remove group)</label><div class="row" style="flex-wrap:nowrap"><input id="bulk-group" placeholder="e.g. batch-1" style="min-width:150px"><button class="ghost small" id="bulk-group-go">Apply</button></div></div>
+            <div><label for="bulk-from">Copy texts from account (empty = default lists)</label><div class="row" style="flex-wrap:nowrap"><input id="bulk-from" list="names-list" placeholder="account name" style="min-width:170px"><button class="ghost small" id="bulk-copy-go">Copy</button></div></div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button class="ghost small" id="bulk-pause">Pause posting</button><button class="ghost small" id="bulk-resume">Resume posting</button><button class="ghost small" id="bulk-now">Publish now</button><button class="ghost small" id="bulk-invite">Invite owners</button>
+            <div class="row" style="flex-wrap:nowrap"><select id="bulk-profile" aria-label="Schedule profile"></select><button class="ghost small" id="bulk-profile-go">Set schedule profile</button></div>
+          </div>
+          <p class="msg" id="bulk-msg"></p>
+        </div>
+        <div class="table-scroll"><table>
+          <thead><tr id="a-head"></tr></thead>
+          <tbody id="a-body"></tbody>
+        </table></div>
+        <div class="pager"><span class="small muted" id="a-count"></span><div class="row"><button class="ghost small" id="a-prev">Previous</button><span class="small" id="a-page"></span><button class="ghost small" id="a-next">Next</button></div></div>
+        <p class="msg" id="acc-msg"></p>
+      </div>
+    </section>
+
+    <!-- SCHEDULE -->
+    <section data-pane="schedule" hidden>
+      <div class="card">
+        <div class="row between">
+          <div><h2>Scheduler <span id="sc-state"></span></h2><p class="muted small" style="margin:0" id="sc-sub"></p></div>
+          <div class="row"><button id="sc-toggle">Resume scheduler</button></div>
+        </div>
+        <div class="tiles" id="sc-tiles" style="margin-top:12px"></div>
+        <details><summary class="small">Scheduler settings</summary>
+          <div class="row" style="margin-top:10px">
+            <div><label for="sc-catchup">Catch up if late by less than (hours)</label><input id="sc-catchup" type="number" min="0" max="72" style="width:120px"></div>
+            <div><label for="sc-par">Parallel uploads</label><input id="sc-par" type="number" min="1" max="8" style="width:120px"></div>
+            <div><label for="sc-prep">Parallel preparations</label><input id="sc-prep" type="number" min="1" max="4" style="width:120px"></div>
+            <div><label for="sc-ahead">Prepare ahead (hours)</label><input id="sc-ahead" type="number" min="1" max="48" style="width:120px"></div>
+            <div><label for="sc-err">Pause an account after errors in a row</label><input id="sc-err" type="number" min="1" max="20" style="width:120px"></div>
+            <button id="sc-save-g" class="ghost">Save settings</button>
+          </div>
+        </details>
+        <p class="msg" id="sc-msg"></p>
+      </div>
+      <div class="card" id="sc-paused-card" hidden>
+        <h2>Paused accounts</h2>
+        <p class="muted small" style="margin:0 0 6px">Accounts are paused manually or automatically (login problems, TikTok limits, repeated errors). Their videos stay in the inbox.</p>
+        <div class="table-scroll"><table><tbody id="sc-paused"></tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="row between"><div><h2>Schedule profiles</h2><p class="muted small" style="margin:0">A profile says how many posts per day, in which time windows and how far apart. Assign profiles to groups below, or override one account in its row on the Accounts tab.</p></div><button id="pf-add" class="ghost">Add profile</button></div>
+        <div class="cols" id="pf-list" style="margin-top:12px"></div>
+        <div class="row" style="margin-top:14px"><div><label for="pf-default">Default profile (accounts whose group has no profile)</label><select id="pf-default"></select></div></div>
+        <h3 style="margin:14px 0 6px;font-size:14px">Profile per group</h3>
+        <div class="table-scroll"><table><tbody id="pf-groups"></tbody></table></div>
+        <div class="row" style="margin-top:12px"><button id="pf-save">Save profiles</button></div>
+        <p class="msg" id="pf-msg"></p>
+      </div>
+      <div class="card">
+        <h2>Timeline</h2>
+        <div class="row" style="margin:8px 0">
+          <div><label for="tl-acc">Account</label><input id="tl-acc" list="names-list" placeholder="All accounts" style="width:180px" autocomplete="off"></div>
+          <div><label for="tl-state">State</label><select id="tl-state"><option value="">All</option><option value="planned">Planned</option><option value="preparing">Preparing</option><option value="prepared">Ready</option><option value="publishing">Publishing</option></select></div>
+        </div>
+        <div class="table-scroll"><table><thead><tr><th>Time (your timezone)</th><th>Account</th><th>State</th><th></th></tr></thead><tbody id="tl-up"></tbody></table></div>
+        <p class="msg small muted" id="tl-note"></p>
+        <h3 style="margin:14px 0 6px;font-size:14px">Recent results</h3>
+        <div class="table-scroll"><table><thead><tr><th>Time</th><th>Account</th><th>Result</th></tr></thead><tbody id="tl-rec"></tbody></table></div>
+      </div>
+    </section>
+
+    <!-- QUEUE -->
+    <section data-pane="queue" hidden>
+      <div class="card">
+        <h2>Queue</h2>
+        <p class="muted small" style="margin:0 0 8px">Next videos waiting in the inbox and the latest results. Music: <span id="music-note"></span></p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Status</th><th>Video</th><th>Account</th><th>Result</th></tr></thead>
+          <tbody id="queue"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- VIDEOS -->
+    <section data-pane="videos" hidden>
+      <div class="card">
+        <div class="row" style="margin-bottom:10px">
+          <div class="grow" style="max-width:300px"><label for="v-q">Search</label><input id="v-q" placeholder="Account, video or caption…" autocomplete="off"></div>
+          <div><label for="f-acc">Account</label><input id="f-acc" list="names-list" placeholder="All accounts" autocomplete="off" style="width:180px"></div>
+          <div><label for="f-st">Status</label><select id="f-st"><option value="">All</option><option value="Posted">Published</option><option value="Error">Failed</option><option value="Check">Needs a check</option><option value="Processing">Publishing</option></select></div>
+        </div>
+        <div class="table-scroll"><table>
+          <thead><tr id="v-head"></tr></thead>
+          <tbody id="v-body"></tbody>
+        </table></div>
+        <div class="pager"><span class="small muted" id="v-count"></span><div class="row"><button class="ghost small" id="v-prev">Previous</button><span class="small" id="v-page"></span><button class="ghost small" id="v-next">Next</button></div></div>
+      </div>
+    </section>
+
+    <!-- TEXTS -->
+    <section data-pane="texts" hidden>
+      <div class="card">
+        <div class="row between">
+          <div class="row">
+            <div style="min-width:240px"><label for="t-acc">Texts for account</label><input id="t-acc" list="names-list" placeholder="Default (all accounts)" autocomplete="off"></div>
+            <button id="t-load" class="ghost">Load</button><button id="t-default" class="ghost">Default lists</button>
+          </div>
+          <p class="muted small" style="margin:0;max-width:520px">Each video gets one random hook, one random caption and a few random hashtags from these lists. An account can have its own lists; without them the default lists are used.</p>
+        </div>
+        <p class="msg" id="t-msg"></p>
+      </div>
+      <div class="cols" id="t-cols"></div>
+    </section>
+
+    <!-- ADD -->
+    <section data-pane="add" hidden>
+      <div class="card">
+        <h2>Add accounts</h2>
+        <p class="muted small" style="margin:0 0 10px">Create the accounts in TikTok yourself, then add their names here: this creates their video folders and their own text lists. You can paste up to 1000 names at once, separated by new lines, spaces or commas (letters, digits, “_” and “-” only). After adding, connect each account to TikTok from its row in the Accounts tab.</p>
+        <div class="row">
+          <div class="grow"><label for="add-names">Account names (one per line)</label><textarea id="add-names" style="min-height:140px" placeholder="account2&#10;account3&#10;account4"></textarea></div>
+          <div style="min-width:200px"><label for="add-group">Group (optional)</label><input id="add-group" placeholder="e.g. batch-1" autocomplete="off"><div style="margin-top:10px"><button id="btn-add-bulk">Add accounts</button></div></div>
+        </div>
+        <p class="msg" id="add-msg"></p>
+      </div>
+      <div class="card">
+        <h2>Invite account owners</h2>
+        <p class="muted small" style="margin:0 0 10px">The person who owns a TikTok account connects it by themselves through a personal one-time link. They never see your access key. Accounts that are not in the list yet are added automatically.</p>
+        <div class="row">
+          <div class="grow"><label for="iv-names">Account names (one per line)</label><textarea id="iv-names" style="min-height:110px" placeholder="account2&#10;account3"></textarea></div>
+          <div style="min-width:230px"><label for="iv-note">Invited by / note (optional)</label><input id="iv-note" placeholder="e.g. contractor Anna" autocomplete="off">
+            <label for="iv-days" style="margin-top:8px">Valid for</label><select id="iv-days"><option value="3">3 days</option><option value="7" selected>7 days</option><option value="14">14 days</option><option value="30">30 days</option></select>
+            <div style="margin-top:10px"><button id="iv-create">Create invitations</button></div></div>
+        </div>
+        <p class="msg" id="iv-msg"></p>
+      </div>
+      <div class="card">
+        <h2>Connect an account to TikTok</h2>
+        <p class="muted small" style="margin:0 0 10px">You will be sent to TikTok to sign in and approve access (basic profile info and posting of videos), then brought back here.</p>
+        <div class="row">
+          <div class="grow" style="max-width:340px"><label for="acc-name">Account name</label><input id="acc-name" list="names-list" value="account1" autocomplete="off"></div>
+          <button id="btn-add">Connect TikTok account</button>
+        </div>
+      </div>
+    </section>
+    <!-- INVITES -->
+    <section data-pane="invites" hidden>
+      <div class="card" id="inv-batch-card" hidden>
+        <h2>New invitations</h2>
+        <p class="muted small" style="margin:0 0 8px">Send every owner their personal link. A link works once and replaces the previous link of the same account.</p>
+        <textarea id="inv-batch" readonly style="min-height:120px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px"></textarea>
+        <div class="row" style="margin-top:8px"><button id="inv-copy-all" class="ghost">Copy all (name and link)</button><button id="inv-copy-msgs" class="ghost">Copy ready-to-send messages</button><button id="inv-download" class="ghost">Download CSV</button></div>
+        <p class="msg" id="inv-batch-msg"></p>
+      </div>
+      <div class="card">
+        <div class="row between"><h2>Invitations</h2><div class="small muted" id="inv-counts"></div></div>
+        <div class="row" style="margin:8px 0">
+          <div class="grow" style="max-width:300px"><label for="inv-q">Search</label><input id="inv-q" placeholder="Account or note…" autocomplete="off"></div>
+          <div><label for="inv-st">Status</label><select id="inv-st"><option value="">All</option><option value="pending">Pending</option><option value="opened">Opened</option><option value="connected">Connected</option><option value="expired">Expired</option><option value="revoked">Revoked</option></select></div>
+        </div>
+        <div class="table-scroll"><table><thead><tr><th>Account</th><th>Invited by / note</th><th>Status</th><th>Created</th><th>Opened</th><th>Connected</th><th>Expires</th><th></th></tr></thead><tbody id="inv-body"></tbody></table></div>
+        <div class="pager"><span class="small muted" id="inv-count"></span><div class="row"><button class="ghost small" id="inv-prev">Previous</button><span class="small" id="inv-page"></span><button class="ghost small" id="inv-next">Next</button></div></div>
+        <p class="msg" id="inv-msg"></p>
+      </div>
+    </section>
+  </div>
+  <datalist id="names-list"></datalist>
+
+  <footer>
+    <a href="index.html">About</a> · <a href="privacy.html">Privacy Policy</a> · <a href="terms.html">Terms of Service</a>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function get(k, s) { try { return (s ? sessionStorage : localStorage).getItem(k) || ''; } catch (e) { return ''; } }
+  function save(k, v, s) { try { (s ? sessionStorage : localStorage).setItem(k, v); } catch (e) {} }
+  function h(tag, props) {
+    var el = document.createElement(tag), kids = Array.prototype.slice.call(arguments, 2);
+    Object.keys(props || {}).forEach(function (k) {
+      if (k === 'class') el.className = props[k]; else if (k === 'text') el.textContent = props[k]; else if (k.slice(0, 2) === 'on') el[k] = props[k]; else el.setAttribute(k, props[k]);
+    });
+    kids.forEach(function (c) { if (c == null) return; el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return el;
+  }
+  function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+  function setMsg(id, text, cls, spin) {
+    var el = $(id); clear(el);
+    if (spin) el.appendChild(h('span', { class: 'spin' }));
+    el.appendChild(document.createTextNode(text || '')); el.className = 'msg' + (cls ? ' ' + cls : '');
+  }
+  function badge(text, cls, title) { var b = h('span', { class: 'badge ' + cls, text: text }); if (title) b.title = title; return b; }
+  function fmt(iso) { if (!iso) return ''; var d = new Date(iso); if (isNaN(d)) return ''; try { return d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return d.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'; } }
+  function ago(iso) {
+    if (!iso) return 'never'; var s = (Date.now() - Date.parse(iso)) / 1000;
+    if (s < 90) return 'just now'; if (s < 3600) return Math.round(s / 60) + ' min ago'; if (s < 86400) return Math.round(s / 3600) + ' h ago'; return Math.round(s / 86400) + ' d ago';
+  }
+  function debounce(fn, ms) { var t; return function () { var a = arguments; clearTimeout(t); t = setTimeout(function () { fn.apply(null, a); }, ms); }; }
+
+  var S = { ov: null, queue: { queue: [] }, connected: false, poll: null,
+    q: { q: '', filter: '', group: '', sort: 'name', dir: 'asc', page: 1, size: 50 }, sel: {}, selAllNote: null, open: null,
+    v: { q: '', account: '', status: '', page: 1 }, textsAcc: null };
+  $('server').value = get('exe_server'); $('key').value = get('exe_key', true);
+  function base() { return $('server').value.trim().replace(/\/+$/, ''); }
+
+  // ---------- API ----------
+  function check(r) {
+    if (r.status === 403) throw new Error('The access key is wrong.');
+    if (r.status === 429) throw new Error('Too many wrong attempts. Try again in 15 minutes.');
+    if (!r.ok) { return r.json().catch(function () { return {}; }).then(function (j) { throw new Error(j.error || 'The server returned an error (' + r.status + ').'); }); }
+    return r.json();
+  }
+  function net() { throw new Error('Cannot reach the server. Check the server address and that the server is running.'); }
+  function get_(ep, params) {
+    var q = '?';
+    Object.keys(params || {}).forEach(function (k) { q += k + '=' + encodeURIComponent(params[k]) + '&'; });
+    return fetch(base() + '/webhook/' + ep + q, { headers: { 'Authorization': 'Bearer ' + $('key').value, 'ngrok-skip-browser-warning': '1' } }).then(check, net);
+  }
+  function post_(body) {
+    return fetch(base() + '/webhook/panel-save', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + $('key').value, 'ngrok-skip-browser-warning': '1' }, body: JSON.stringify(body) }).then(check, net);
+  }
+  function overviewParams(extra) {
+    var q = S.q, p = { action: 'overview', q: q.q, filter: q.filter, group: q.group, sort: q.sort, dir: q.dir, page: q.page, size: q.size };
+    Object.keys(extra || {}).forEach(function (k) { p[k] = extra[k]; }); return p;
+  }
+
+  // ---------- connect ----------
+  function connect(quiet) {
+    if (!base() || !$('key').value) { setMsg('conn-msg', 'Enter the server address and the access key.', 'err'); return Promise.resolve(); }
+    if (!quiet) setMsg('conn-msg', 'Connecting…', '', true);
+    save('exe_server', base()); save('exe_key', $('key').value, true);
+    return refreshAll().then(function () {
+      loadSchedule(true); S.connected = true; $('conn-form').hidden = true; $('conn-bar').hidden = false; $('app').hidden = false;
+      try { $('conn-host').textContent = new URL(base()).host; } catch (e) { $('conn-host').textContent = base(); }
+      setMsg('conn-msg', '');
+    }).catch(function (e) { setMsg('conn-msg', e.message, 'err'); });
+  }
+  $('btn-connect').onclick = function () { connect(false); };
+  $('key').addEventListener('keydown', function (e) { if (e.key === 'Enter') connect(false); });
+  $('btn-forget').onclick = function () { S.connected = false; $('app').hidden = true; $('conn-form').hidden = false; $('conn-bar').hidden = true; stopPoll(); };
+
+  function refreshAll() {
+    return Promise.all([get_('panel-api', overviewParams()), get_('console-api')]).then(function (r) {
+      S.ov = r[0]; S.queue = r[1]; renderAll();
+    });
+  }
+  function refreshQueueOnly() {
+    return get_('console-api').then(function (q) { S.queue = q; renderTop(); renderQueue(); });
+  }
+  function reloadAccounts() {
+    return get_('panel-api', overviewParams()).then(function (d) { S.ov = d; renderAccounts(); renderTop(); });
+  }
+  $('btn-refresh').onclick = function () { setMsg('run-msg', ''); refreshAll().then(function () { if (!$('app').querySelector('[data-pane="videos"]').hidden) loadVideos(); }).catch(function (e) { setMsg('run-msg', e.message, 'err'); }); };
+
+  // ---------- tabs ----------
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function (t) { t.onclick = function () { showTab(t.getAttribute('data-tab')); }; });
+  function showTab(name) {
+    tabs.forEach(function (t) { t.className = 'tab' + (t.getAttribute('data-tab') === name ? ' on' : ''); });
+    document.querySelectorAll('[data-pane]').forEach(function (p) { p.hidden = p.getAttribute('data-pane') !== name; });
+    if (name === 'videos') loadVideos();
+    if (name === 'schedule') loadSchedule();
+    if (name === 'invites') loadInvites();
+    if (name === 'texts' && !S.textsAcc && S.textsAcc !== '') loadTexts();
+  }
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT' && S.connected) { e.preventDefault(); showTab('accounts'); $('a-q').focus(); }
+  });
+
+  // ---------- helpers ----------
+  var STATUS = { ready: ['Waiting to publish', 'b-wait'], processing: ['Publishing…', 'b-busy'], posted: ['Published', 'b-ok'], dryrun: ['Test run', 'b-wait'], check: ['Needs a manual check', 'b-busy'], error: ['Failed', 'b-fail'] };
+  function statusOf(s) { return STATUS[String(s || '').toLowerCase()] || [s || '-', 'b-wait']; }
+  function friendlyError(e) {
+    e = String(e || '');
+    if (/not connected/i.test(e)) return 'This account is not connected. The video stays in the inbox.';
+    if (/private accounts|unaudited/i.test(e)) return 'TikTok allows only private accounts until the app is approved. Make the TikTok account private.';
+    if (/interrupted/i.test(e)) return 'The run was interrupted. The video was not published.';
+    return e ? 'Something went wrong: ' + e.slice(0, 140) : 'Something went wrong.';
+  }
+  function resultOf(r) {
+    var s = String(r.status || '').toLowerCase(), t = '';
+    if (s === 'ready') return 'Waiting in the inbox folder.';
+    if (s === 'error') return friendlyError(r.error);
+    if (s === 'processing') return 'In progress…';
+    if (s === 'check') t = 'TikTok has not confirmed the post yet. Check the account before publishing again.';
+    else if (s === 'posted') {
+      t = 'Posted to TikTok' + (String(r.privacy).indexOf('SELF_ONLY') === 0 ? ' as a private video.' : '.');
+      if (r.music && r.music.indexOf('none|') !== 0) { var mp = r.music.split('|'); t += ' Music: ' + mp[1] + ' (' + mp[0] + ').'; }
+    } else if (s === 'dryrun') t = 'Test run: nothing was sent to TikTok.';
+    return t;
+  }
+  var FLAG = {
+    not_connected_stock: ['Not connected', 'b-fail', 'Videos are waiting, but the account is not connected'],
+    refresh_expired: ['Login expired', 'b-fail', 'The TikTok login expired. Reconnect the account.'],
+    refresh_soon: ['Login expires soon', 'b-busy', 'Reconnect the account before the TikTok login expires'],
+    no_stock: ['No videos', 'b-busy', 'No videos in stock'],
+    low_stock: ['Low stock', 'b-busy', 'Fewer than 5 videos left'],
+    failed: ['Failed videos', 'b-fail', 'Some videos failed. See the Videos tab.'],
+    paused: ['Paused', 'b-busy', 'Posting is paused for this account']
+  };
+  function steps(a) {
+    return [
+      { l: 'Added', d: !!(a.created_at || a.stock || a.published || a.connected), t: a.created_at }, { l: 'Invited', d: !!a.invite, t: a.invite && a.invite.created_at }, { l: 'Connected', d: a.connected, t: a.connected_at },
+      { l: 'Videos', d: a.stock > 0 || a.published > 0 }, { l: 'First post', d: !!a.first_post_at, t: a.first_post_at }, { l: 'Active', d: a.published_7d > 0 }
+    ];
+  }
+  function stepper(a) {
+    var box = h('div', { class: 'steps' });
+    steps(a).forEach(function (s) { box.appendChild(h('div', { class: 'step' + (s.d ? ' done' : ''), title: s.t ? fmt(s.t) : '' }, h('i'), s.l)); });
+    return box;
+  }
+  function copyText(text, btn) {
+    var t0 = btn.textContent, say = function (m) { btn.textContent = m; setTimeout(function () { btn.textContent = t0; }, 1500); };
+    var fallback = function () {
+      try { var ta = h('textarea', { style: 'position:fixed;opacity:0' }); ta.value = text; document.body.appendChild(ta); ta.select(); var ok = document.execCommand('copy'); ta.remove(); say(ok ? 'Copied' : 'Copy failed'); } catch (e) { say('Copy failed'); }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { say('Copied'); }, fallback); else fallback();
+  }
+  function queueStats() {
+    var w = 0, bz = 0, lastErr = null;
+    (S.queue.queue || []).forEach(function (r) { var s = String(r.status || '').toLowerCase(); if (s === 'ready') w++; if (s === 'processing') bz++; if (s === 'error' && !lastErr) lastErr = r; });
+    return { waiting: w, busy: bz, lastErr: lastErr };
+  }
+
+  // ---------- render ----------
+  function renderAll() { renderTop(); renderAccounts(); renderQueue(); }
+  function renderTop() {
+    var o = S.ov;
+    $('banner').hidden = !o.dry_run;
+    var al = $('alerts'); al.textContent = (o.alerts || []).join(' '); al.hidden = !(o.alerts && o.alerts.length);
+    $('cap-note').textContent = o.max_per_run ? 'Up to ' + o.max_per_run + ' video' + (o.max_per_run > 1 ? 's' : '') + ' per press.' : '';
+    var q = queueStats();
+    $('btn-run').disabled = !(o.summary.connected > 0 && q.waiting && !q.busy);
+    $('btn-run').title = !o.summary.connected ? 'Connect a TikTok account first' : (!q.waiting ? 'There are no videos in the inbox folder' : '');
+    var mu = o.music || { mode: 'silent', moods: {} }, names = Object.keys(mu.moods), total = names.reduce(function (s, k) { return s + mu.moods[k]; }, 0);
+    var modeText = mu.mode === 'off' ? 'off' : (mu.mode === 'mix' ? 'added to every video' : 'added to videos without sound');
+    $('music-note').textContent = modeText + (mu.mode === 'off' ? '' : (total ? ' · ' + names.map(function (k) { return k + ' ' + mu.moods[k]; }).join(', ') + ' track(s)' : ' · no tracks yet: put audio files into the music folder (calm, energetic, mysterious)'));
+  }
+
+  var TILES = [['', 'total', 'Accounts'], ['attention', 'attention', 'Need attention'], ['paused', 'paused', 'Paused'], ['invited', 'invited', 'Invited'], ['not_connected', 'not_connected', 'Not connected'], ['low_stock', 'low_stock', 'Low stock'], ['no_stock', 'no_stock', 'No videos'], ['active', 'active', 'Posted in 7 days'], ['inactive', 'inactive', 'Idle (7 days)'], ['failed', 'failed', 'With failures']];
+  function setFilter(f) { S.q.filter = f; S.q.page = 1; S.sel = {}; reloadAccounts().catch(function (e) { setMsg('acc-msg', e.message, 'err'); }); }
+
+  function renderAccounts() {
+    var o = S.ov, sm = o.summary;
+    var tiles = $('tiles'); clear(tiles);
+    TILES.forEach(function (t) {
+      var b = h('button', { class: 'tile' + (S.q.filter === t[0] ? ' on' : ''), title: 'Show: ' + t[2] }, h('b', { text: String(sm[t[1]]) }), h('span', { text: t[2] }));
+      b.onclick = function () { setFilter(t[0]); }; tiles.appendChild(b);
+    });
+    tiles.appendChild(h('div', { class: 'tile', style: 'cursor:default' }, h('b', { text: String(sm.stock_total) }), h('span', { text: 'Videos in stock' })));
+    tiles.appendChild(h('div', { class: 'tile', style: 'cursor:default' }, h('b', { text: String(sm.published_7d) }), h('span', { text: 'Published, 7 days' })));
+
+    var g = $('a-group'), gv = S.q.group; clear(g);
+    g.appendChild(h('option', { value: '', text: 'All groups' })); g.appendChild(h('option', { value: '_none', text: 'No group' }));
+    Object.keys(o.groups).sort().forEach(function (k) { g.appendChild(h('option', { value: k, text: k + ' (' + o.groups[k] + ')' })); });
+    g.value = gv;
+
+    var head = $('a-head'); clear(head);
+    var cols = [['', null, ''], ['Account', 'name', ''], ['Group', 'group', ''], ['Connection', null, ''], ['Stock', 'stock', 'num'], ['7 days', 'published_7d', 'num'], ['Total', 'published', 'num'], ['Last post', 'last_post', ''], ['Next post', null, ''], ['Attention', null, '']];
+    var allBox = h('input', { type: 'checkbox', 'aria-label': 'Select all on this page', style: 'width:auto' });
+    allBox.checked = o.accounts.length > 0 && o.accounts.every(function (a) { return S.sel[a.account]; });
+    allBox.onchange = function () { o.accounts.forEach(function (a) { if (allBox.checked) S.sel[a.account] = true; else delete S.sel[a.account]; }); renderAccounts(); };
+    cols.forEach(function (c, i) {
+      var th = h('th', { class: (c[1] ? 'sort ' : '') + c[2] });
+      if (i === 0) th.appendChild(allBox);
+      else { th.textContent = c[0] + (c[1] && S.q.sort === c[1] ? (S.q.dir === 'asc' ? ' ▲' : ' ▼') : '');
+        if (c[1]) th.onclick = function () { if (S.q.sort === c[1]) S.q.dir = S.q.dir === 'asc' ? 'desc' : 'asc'; else { S.q.sort = c[1]; S.q.dir = (c[1] === 'name' || c[1] === 'group') ? 'asc' : 'desc'; } S.q.page = 1; reloadAccounts(); }; }
+      head.appendChild(th);
+    });
+
+    var body = $('a-body'); clear(body);
+    if (!o.accounts.length) body.appendChild(h('tr', null, h('td', { colspan: '10', class: 'empty', text: sm.total ? 'No accounts match. Change the search or the filter.' : 'No accounts yet. Add them in the “Add accounts” tab.' })));
+    o.accounts.forEach(function (a) {
+      var cb = h('input', { type: 'checkbox', 'aria-label': 'Select ' + a.account, style: 'width:auto' }); cb.checked = !!S.sel[a.account];
+      cb.onclick = function (e) { e.stopPropagation(); if (cb.checked) S.sel[a.account] = true; else delete S.sel[a.account]; renderBulk(); };
+      var fl = h('td'); a.flags.slice(0, 2).forEach(function (f) { var d = FLAG[f]; if (d) fl.appendChild(badge(d[0], d[1], d[2])); fl.appendChild(document.createTextNode(' ')); });
+      if (a.flags.length > 2) fl.appendChild(badge('+' + (a.flags.length - 2), 'b-mute', a.flags.slice(2).join(', ')));
+      var tr = h('tr', { class: 'acc-row' + (S.open === a.account ? ' open' : ''), tabindex: '0' },
+        h('td', null, cb), h('td', null, h('b', { text: a.account }), a.nick ? h('div', { class: 'small muted', text: a.nick }) : ''), h('td', { class: 'small', text: a.group }),
+        h('td', null, badge(a.connected ? 'Connected' : 'Not connected', a.connected ? 'b-ok' : 'b-fail')),
+        h('td', { class: 'num', text: String(a.stock) }), h('td', { class: 'num', text: String(a.published_7d) }), h('td', { class: 'num', text: String(a.published) }),
+        h('td', { class: 'small', text: a.last_post_at ? ago(a.last_post_at) : '' }), nextCell(a), fl);
+      tr.onclick = function () { S.open = S.open === a.account ? null : a.account; renderAccounts(); };
+      tr.onkeydown = function (e) { if (e.key === 'Enter') tr.onclick(); };
+      body.appendChild(tr);
+      if (S.open === a.account) body.appendChild(detailRow(a));
+    });
+    $('a-count').textContent = o.total_matching + ' account' + (o.total_matching === 1 ? '' : 's') + (o.total_matching !== sm.total ? ' of ' + sm.total : '');
+    $('a-page').textContent = 'Page ' + o.page + ' of ' + o.pages;
+    $('a-prev').disabled = o.page <= 1; $('a-next').disabled = o.page >= o.pages;
+    renderChips(); renderBulk();
+  }
+
+  function renderChips() {
+    var c = $('chips'); clear(c); var sm = S.ov.summary;
+    [['', 'All'], ['attention', 'Needs attention'], ['paused', 'Paused'], ['invited', 'Invited'], ['not_connected', 'Not connected'], ['low_stock', 'Low stock'], ['no_stock', 'No videos'], ['active', 'Active'], ['inactive', 'Idle'], ['failed', 'Failures']].forEach(function (x) {
+      var n = x[0] === '' ? sm.total : sm[x[0]], b = h('button', { class: 'chip' + (S.q.filter === x[0] ? ' on' : ''), text: x[1] + ' ' + n });
+      b.onclick = function () { setFilter(x[0]); }; c.appendChild(b);
+    });
+  }
+  function selCount() { return Object.keys(S.sel).length; }
+  function renderBulk() {
+    var n = selCount(); $('bulk').hidden = n === 0; var onPage = S.ov.accounts.filter(function (a) { return S.sel[a.account]; }).length; $('bulk-n').textContent = n + (n !== onPage ? ' (' + (n - onPage) + ' on other pages)' : ''); if (n) renderBulkProfiles();
+    var more = $('bulk-all'), tm = S.ov.total_matching;
+    more.hidden = !(n > 0 && tm > n && tm <= 1000); more.textContent = 'Select all ' + tm + ' matching';
+    var allb = document.querySelector('#a-head input[type=checkbox]');
+    if (allb) allb.checked = S.ov.accounts.length > 0 && S.ov.accounts.every(function (a) { return S.sel[a.account]; });
+  }
+  $('bulk-clear').onclick = function () { S.sel = {}; renderAccounts(); };
+  $('bulk-all').onclick = function () {
+    setMsg('bulk-msg', 'Selecting…', '', true);
+    get_('panel-api', overviewParams({ names_only: '1' })).then(function (d) { d.names.forEach(function (n) { S.sel[n] = true; }); setMsg('bulk-msg', ''); renderAccounts(); }).catch(function (e) { setMsg('bulk-msg', e.message, 'err'); });
+  };
+  $('bulk-group-go').onclick = function () {
+    var names = Object.keys(S.sel), g = $('bulk-group').value.trim();
+    if (g === '' && !window.confirm('Remove the group from ' + names.length + ' account(s)?')) return;
+    setMsg('bulk-msg', 'Saving…', '', true); $('bulk-group-go').disabled = true;
+    post_({ action: 'setGroup', accounts: names, group: g }).then(function (r) { return reloadAccounts().then(function () { setMsg('bulk-msg', 'Group updated for ' + r.updated + ' account(s).', 'ok'); }); }).catch(function (e) { setMsg('bulk-msg', e.message, 'err'); }).then(function () { $('bulk-group-go').disabled = false; });
+  };
+  $('bulk-copy-go').onclick = function () {
+    var names = Object.keys(S.sel), from = $('bulk-from').value.trim();
+    if (!window.confirm('Replace the own hook, caption and hashtag lists of ' + names.length + ' account(s) with ' + (from ? 'the lists of "' + from + '"' : 'a copy of the default lists') + '?')) return;
+    setMsg('bulk-msg', 'Copying…', '', true);
+    post_({ action: 'copyPools', from: from, accounts: names }).then(function (r) { setMsg('bulk-msg', 'Texts copied to ' + r.copied + ' account(s)' + (r.skipped ? ' (' + r.skipped + ' skipped)' : '') + '.', 'ok'); }).catch(function (e) { setMsg('bulk-msg', e.message, 'err'); });
+  };
+
+  function detailRow(a) {
+    var link = h('input', { value: a.bio_link || '', placeholder: 'https://…', 'aria-label': 'Link in bio' });
+    var set = h('input', { type: 'checkbox', style: 'width:auto' }); set.checked = !!a.bio_link_set;
+    var aig = h('input', { type: 'checkbox', style: 'width:auto' }); aig.checked = a.aigc !== false;
+    var grp = h('input', { value: a.group || '', placeholder: 'group', 'aria-label': 'Group', style: 'width:140px' });
+    var saveB = h('button', { class: 'ghost small', text: 'Save' });
+    saveB.onclick = function () {
+      saveB.disabled = true; setMsg('acc-msg', 'Saving…', '', true);
+      post_({ action: 'saveAccount', account: a.account, bio_link: link.value, bio_link_set: set.checked, aigc: aig.checked, group: grp.value }).then(function () { return reloadAccounts(); })
+        .then(function () { setMsg('acc-msg', a.account + ' saved.', 'ok'); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); saveB.disabled = false; });
+    };
+    var copyB = h('button', { class: 'ghost small', text: 'Copy' }); copyB.onclick = function () { copyText(link.value, copyB); };
+    var conn = h('button', { class: 'small', text: a.connected ? 'Reconnect to TikTok' : 'Connect to TikTok' }); conn.onclick = function () { startConnect(a.account); };
+    var dis = h('button', { class: 'ghost small', text: 'Disconnect' }); dis.disabled = !a.connected; dis.onclick = function () { disconnect(a.account, dis); };
+    var rm = h('button', { class: 'ghost small', text: 'Remove' }); rm.disabled = a.connected; rm.title = a.connected ? 'Disconnect the account first' : 'Remove this account from the tool (its video folder is kept in /files/removed)';
+    rm.onclick = function () {
+      if (!window.confirm('Remove "' + a.account + '" from the tool? Its video folder is moved to the removed folder, not deleted.')) return;
+      rm.disabled = true; post_({ action: 'deleteAccount', account: a.account }).then(function () { S.open = null; return reloadAccounts(); }).then(function () { setMsg('acc-msg', a.account + ' removed.', 'ok'); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); rm.disabled = false; });
+    };
+    var texts = h('button', { class: 'ghost small', text: 'Edit texts' }); texts.onclick = function () { $('t-acc').value = a.account; showTab('texts'); loadTexts(); };
+    var dates = steps(a).filter(function (x) { return x.d && x.t; }).map(function (x) { return x.l + ': ' + fmt(x.t); }).join(' · ');
+    var warn = h('div'); a.flags.forEach(function (f) { var d = FLAG[f]; if (d) warn.appendChild(h('div', { class: 'small', style: 'margin:3px 0' }, badge(d[0], d[1]), ' ' + d[2] + '.')); });
+    var td = h('td', { colspan: '10' }, h('div', { class: 'detail' }, h('div', { class: 'detail-grid' },
+      h('div', null, h('h3', { text: 'Onboarding', style: 'margin:0 0 4px;font-size:14px' }), stepper(a), h('div', { class: 'small muted', text: dates }), warn),
+      h('div', null, h('label', { text: 'Link in bio' }), h('div', { class: 'row', style: 'flex-wrap:nowrap' }, link, copyB),
+        h('label', { class: 'small', style: 'display:flex;gap:6px;align-items:center;margin:6px 0' }, set, 'Already set in the TikTok profile'),
+        h('label', { class: 'small', style: 'display:flex;gap:6px;align-items:center;margin:6px 0' }, aig, 'Label videos as AI-generated (TikTok requirement for AI content)'),
+        h('div', { class: 'row', style: 'align-items:center' }, grp, saveB)),
+      h('div', null, h('div', { class: 'row' }, conn, dis, texts, rm), inviteBox(a), scheduleBox(a)))));
+    return h('tr', { class: 'open' }, td);
+  }
+
+  function disconnect(name, btn) {
+    if (!window.confirm('Disconnect "' + name + '"? TikTok access for this app will be revoked and the stored login removed. You can connect it again at any time.')) return;
+    btn.disabled = true; setMsg('acc-msg', 'Disconnecting…', '', true);
+    get_('console-api', { action: 'disconnect', account: name }).then(function (r) {
+      return refreshAll().then(function () { setMsg('acc-msg', r.revoked ? 'Disconnected. Access was revoked on TikTok.' : 'Removed from this tool.' + (r.revoke_error ? ' TikTok did not confirm the revocation.' : ''), r.revoked ? 'ok' : 'err'); });
+    }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); btn.disabled = false; });
+  }
+  function startConnect(name) {
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(name)) { setMsg('acc-msg', 'Use 1-40 letters, digits, “_” or “-” for the account name (it is saved in lowercase).', 'err'); return; }
+    setMsg('acc-msg', 'Redirecting to TikTok…', '', true);
+    post_({ action: 'connectTicket', account: name.toLowerCase() }).then(function (r) { window.location.href = r.url; })
+      .catch(function (e) { setMsg('acc-msg', e.message, 'err'); });
+  }
+  $('btn-add').onclick = function () { startConnect($('acc-name').value.trim()); };
+
+  var searchNow = debounce(function () { S.q.q = $('a-q').value.trim(); S.q.page = 1; S.sel = {}; reloadAccounts().catch(function (e) { setMsg('acc-msg', e.message, 'err'); }); }, 300);
+  $('a-q').oninput = searchNow;
+  $('a-group').onchange = function () { S.q.group = $('a-group').value; S.q.page = 1; S.sel = {}; reloadAccounts(); };
+  $('a-size').onchange = function () { S.q.size = parseInt($('a-size').value, 10); S.q.page = 1; reloadAccounts(); };
+  $('a-prev').onclick = function () { S.q.page = Math.max(1, S.q.page - 1); reloadAccounts(); };
+  $('a-next').onclick = function () { S.q.page += 1; reloadAccounts(); };
+
+  // подсказки имён аккаунтов (для полей с автодополнением)
+  var suggest = debounce(function (val) {
+    get_('panel-api', { action: 'names', q: val }).then(function (d) { var dl = $('names-list'); clear(dl); d.names.forEach(function (n) { dl.appendChild(h('option', { value: n })); }); }).catch(function () {});
+  }, 250);
+  ['t-acc', 'f-acc', 'bulk-from', 'acc-name'].forEach(function (id) { $(id).addEventListener('input', function () { suggest($(id).value); }); $(id).addEventListener('focus', function () { suggest($(id).value); }); });
+
+  // ---------- add accounts ----------
+  $('btn-add-bulk').onclick = function () {
+    var names = $('add-names').value.split(/[\s,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!names.length) { setMsg('add-msg', 'Enter at least one account name.', 'err'); return; }
+    if (names.length > 1000) { setMsg('add-msg', 'Up to 1000 names at once.', 'err'); return; }
+    var b = $('btn-add-bulk'); b.disabled = true; setMsg('add-msg', 'Adding ' + names.length + ' account(s)…', '', true);
+    post_({ action: 'addAccounts', names: names, group: $('add-group').value.trim() }).then(function (r) {
+      var t = r.added + ' added' + (r.existing ? ', ' + r.existing + ' already existed' : '') + (r.invalid_count ? ', ' + r.invalid_count + ' skipped (invalid name: ' + r.invalid.join(', ') + (r.invalid_count > r.invalid.length ? '…' : '') + ')' : '') + '.';
+      return refreshAll().then(function () { setMsg('add-msg', t + ' Connect each account to TikTok from the Accounts tab.', r.added ? 'ok' : 'busy'); if (r.added) $('add-names').value = ''; });
+    }).catch(function (e) { setMsg('add-msg', e.message, 'err'); }).then(function () { b.disabled = false; });
+  };
+
+  // ---------- videos ----------
+  var vSearch = debounce(function () { S.v.q = $('v-q').value.trim(); S.v.page = 1; loadVideos(); }, 300);
+  $('v-q').oninput = vSearch;
+  $('f-acc').onchange = function () { S.v.account = $('f-acc').value.trim(); S.v.page = 1; loadVideos(); };
+  $('f-st').onchange = function () { S.v.status = $('f-st').value; S.v.page = 1; loadVideos(); };
+  $('v-prev').onclick = function () { S.v.page = Math.max(1, S.v.page - 1); loadVideos(); };
+  $('v-next').onclick = function () { S.v.page += 1; loadVideos(); };
+  function loadVideos() {
+    get_('panel-api', { action: 'posts', q: S.v.q, account: S.v.account, status: S.v.status, page: S.v.page, size: 50 }).then(function (d) {
+      var statsOn = d.stats_enabled, head = $('v-head'); clear(head);
+      ['Date', 'Account', 'Video', 'Status', 'Hook', 'Caption', 'Result'].concat(statsOn ? ['Views', 'Likes', 'Comments', 'Shares'] : []).forEach(function (t) { head.appendChild(h('th', { text: t })); });
+      var body = $('v-body'); clear(body);
+      if (!d.posts.length) body.appendChild(h('tr', null, h('td', { colspan: '11', class: 'empty', text: 'No videos match. Published videos appear here.' })));
+      d.posts.forEach(function (p) {
+        var s = statusOf(p.status), m = p.metrics || {};
+        var tr = h('tr', null, h('td', { class: 'small', text: fmt(p.at) }), h('td', { text: p.account }), h('td', { text: (p.rel ? p.rel + ' / ' : '') + p.file }), h('td', null, badge(s[0], s[1])),
+          h('td', { class: 'small', text: p.hook }), h('td', { class: 'small', text: p.caption }), h('td', { class: 'small', text: resultOf(p) }));
+        if (statsOn) ['views', 'likes', 'comments', 'shares'].forEach(function (k) { tr.appendChild(h('td', { text: m[k] != null ? String(m[k]) : '-' })); });
+        body.appendChild(tr);
+      });
+      $('v-count').textContent = d.total + ' video' + (d.total === 1 ? '' : 's'); $('v-page').textContent = 'Page ' + d.page + ' of ' + d.pages;
+      $('v-prev').disabled = d.page <= 1; $('v-next').disabled = d.page >= d.pages;
+    }).catch(function (e) { setMsg('run-msg', e.message, 'err'); });
+  }
+
+  // ---------- queue ----------
+  function renderQueue() {
+    var qb = $('queue'); clear(qb); var rows = S.queue.queue || [];
+    if (!rows.length) { qb.appendChild(h('tr', null, h('td', { colspan: '4', class: 'empty', text: 'The queue is empty. Put video files into the inbox folder to publish them.' }))); return; }
+    rows.forEach(function (r) { var s = statusOf(r.status); qb.appendChild(h('tr', null, h('td', null, badge(s[0], s[1])), h('td', { text: r.file || '' }), h('td', { text: r.account || '' }), h('td', { class: 'small', text: resultOf(r) }))); });
+  }
+
+  // ---------- texts ----------
+  var TYPES = [
+    { k: 'hooks', title: 'Hooks', hint: 'Short text shown on the video during the first seconds. One per line, up to 120 characters, no emoji. An empty list means no text on the video.' },
+    { k: 'captions', title: 'Captions', hint: 'One caption per line (up to 300 characters). One random caption is used for each video.' },
+    { k: 'hashtags', title: 'Hashtags', hint: 'One word per line, without #. A few random hashtags are added to each caption.' }
+  ];
+  var ed = {};
+  function dirty() { return Object.keys(ed).some(function (k) { return ed[k] && ed[k].ta.value !== ed[k].orig; }); }
+  function loadTexts() {
+    var acc = $('t-acc').value.trim();
+    if (acc && !/^[A-Za-z0-9_-]{1,40}$/.test(acc)) { setMsg('t-msg', 'Choose an account from the suggestions or leave the field empty for the default lists.', 'err'); return Promise.resolve(); }
+    if (dirty() && S.textsAcc !== acc && !window.confirm('You have unsaved changes. Switch anyway?')) { $('t-acc').value = S.textsAcc || ''; return Promise.resolve(); }
+    setMsg('t-msg', 'Loading…', '', true);
+    return get_('panel-api', { action: 'pools', account: acc }).then(function (d) { S.textsAcc = acc; renderTexts(d); setMsg('t-msg', ''); }).catch(function (e) { setMsg('t-msg', e.message, 'err'); });
+  }
+  $('t-load').onclick = loadTexts;
+  $('t-acc').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadTexts(); });
+  $('t-acc').addEventListener('change', loadTexts);
+  $('t-default').onclick = function () { $('t-acc').value = ''; loadTexts(); };
+  function lines(v) { return v.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean); }
+  function renderTexts(d) {
+    var cols = $('t-cols'); clear(cols); ed = {};
+    TYPES.forEach(function (t) {
+      var L = d.lists[t.k], text = L.items.join('\n') + (L.items.length ? '\n' : '');
+      var ta = h('textarea', { spellcheck: 'false', 'aria-label': t.title }); ta.value = text;
+      var count = h('span', { class: 'small muted' });
+      var tag = d.account ? badge(L.own ? 'Own list' : 'Using default list', L.own ? 'b-ok' : 'b-wait') : null;
+      var saveB = h('button', { text: 'Save' }), resetB = h('button', { class: 'ghost', text: 'Use default list' });
+      resetB.hidden = !d.account || !L.own;
+      ed[t.k] = { ta: ta, orig: text };
+      var upd = function () { var n = lines(ta.value).length; count.textContent = n + ' line' + (n === 1 ? '' : 's'); saveB.disabled = ta.value === ed[t.k].orig; };
+      ta.oninput = upd; upd();
+      saveB.onclick = function () {
+        saveB.disabled = true; setMsg('t-msg', 'Saving…', '', true);
+        post_({ action: 'savePools', account: d.account, type: t.k, items: lines(ta.value) }).then(function (r) {
+          return loadTexts().then(function () { setMsg('t-msg', t.title + ' saved: ' + r.saved + ' line' + (r.saved === 1 ? '' : 's') + (r.rejected ? ' (' + r.rejected + ' skipped: too long, duplicate or not allowed)' : '') + '.', 'ok'); });
+        }).catch(function (e) { setMsg('t-msg', e.message, 'err'); saveB.disabled = false; });
+      };
+      resetB.onclick = function () {
+        if (!window.confirm('Remove the own ' + t.title.toLowerCase() + ' list of "' + d.account + '" and use the default list?')) return;
+        post_({ action: 'resetPools', account: d.account, type: t.k }).then(function () { return loadTexts(); }).then(function () { setMsg('t-msg', 'Now using the default ' + t.title.toLowerCase() + '.', 'ok'); }).catch(function (e) { setMsg('t-msg', e.message, 'err'); });
+      };
+      cols.appendChild(h('div', { class: 'card', style: 'margin:0' },
+        h('div', { class: 'row between', style: 'margin-bottom:4px' }, h('h2', { text: t.title }), tag), h('p', { class: 'muted small', style: 'margin:0 0 8px', text: t.hint }), ta,
+        h('div', { class: 'row between', style: 'margin-top:8px' }, count, h('div', { class: 'row' }, resetB, saveB))));
+    });
+  }
+  window.addEventListener('beforeunload', function (e) { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+  // ---------- schedule ----------
+  var DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var STATE_LABEL = { planned: ['Planned', 'b-wait'], preparing: ['Preparing', 'b-busy'], prepared: ['Ready', 'b-ok'], publishing: ['Publishing', 'b-busy'], done: ['Done', 'b-ok'], skipped: ['Skipped', 'b-mute'], failed: ['Failed', 'b-fail'] };
+  var TZS = ['UTC', 'Europe/Warsaw', 'Europe/Berlin', 'Europe/London', 'Europe/Kyiv', 'Europe/Moscow', 'Europe/Istanbul', 'Asia/Dubai', 'Asia/Almaty', 'Asia/Tbilisi', 'Asia/Yerevan', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'America/Sao_Paulo'];
+  S.sched = null; S.profiles = null; S.groupMap = null; S.defProfile = null;
+  function shortTime(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+  function nextCell(a) {
+    var td = h('td', { class: 'small' });
+    if (a.paused) { td.appendChild(badge('Paused', 'b-busy', a.paused_reason || 'Posting is paused')); return td; }
+    if (a.next_post_at) { td.textContent = shortTime(a.next_post_at); td.title = fmt(a.next_post_at); }
+    return td;
+  }
+  function loadSchedule(quiet) {
+    return get_('panel-api', { action: 'schedule' }).then(function (d) {
+      S.sched = d; S.profiles = JSON.parse(JSON.stringify(d.config.profiles)); S.groupMap = JSON.parse(JSON.stringify(d.config.group_profile)); S.defProfile = d.config.default_profile;
+      renderSchedule(); if (S.ov) renderBulkProfiles();
+    }).catch(function (e) { if (!quiet) setMsg('sc-msg', e.message, 'err'); });
+  }
+  function profileNames() { return S.profiles ? Object.keys(S.profiles) : []; }
+  function renderSchedule() {
+    var c = S.sched.config, G = c.global, sm = S.sched.summary, counts = sm.counts || {};
+    var st = $('sc-state'); clear(st); st.appendChild(badge(G.paused ? 'Paused' : 'Running', G.paused ? 'b-busy' : 'b-ok'));
+    var age = sm.at ? Math.round((Date.now() - sm.at) / 60000) : null;
+    $('sc-sub').textContent = G.paused ? 'Nothing is planned or published automatically while the scheduler is paused.' : 'Posts are planned for the next 24-36 hours and published at their time.';
+    if (age !== null && age >= 3) $('sc-sub').textContent += ' Warning: the scheduler has not checked in for ' + age + ' min. Make sure the computer, Docker and n8n are running.';
+    if (age === null) $('sc-sub').textContent += ' Waiting for the first scheduler check…';
+    $('sc-toggle').textContent = G.paused ? 'Resume scheduler' : 'Pause scheduler';
+    var tiles = $('sc-tiles'); clear(tiles);
+    [['planned', 'Planned'], ['preparing', 'Preparing'], ['prepared', 'Ready to post'], ['publishing', 'Publishing'], ['done', 'Done (recent)'], ['skipped', 'Skipped'], ['failed', 'Failed']].forEach(function (x) {
+      tiles.appendChild(h('div', { class: 'tile', style: 'cursor:default' }, h('b', { text: String(counts[x[0]] || 0) }), h('span', { text: x[1] })));
+    });
+    $('sc-catchup').value = G.catchup_hours; $('sc-par').value = G.max_parallel; $('sc-prep').value = G.max_prepare; $('sc-ahead').value = G.prepare_ahead_hours; $('sc-err').value = G.pause_after_errors;
+    // приостановленные аккаунты
+    var pc = $('sc-paused-card'), pb = $('sc-paused'); clear(pb); pc.hidden = !sm.paused.length;
+    sm.paused.forEach(function (p) {
+      var b = h('button', { class: 'ghost small', text: 'Resume' });
+      b.onclick = function () { b.disabled = true; post_({ action: 'pauseAccounts', accounts: [p.account], paused: false }).then(function () { return Promise.all([loadSchedule(), refreshAll()]); }).catch(function (e) { setMsg('sc-msg', e.message, 'err'); b.disabled = false; }); };
+      pb.appendChild(h('tr', null, h('td', null, h('b', { text: p.account })), h('td', { class: 'small', text: p.reason || '' }), h('td', { class: 'small muted', text: (p.at ? 'since ' + fmt(p.at) : '') + (p.until ? ' · until ' + fmt(p.until) : '') }), h('td', null, b)));
+    });
+    renderProfiles(); renderTimeline();
+  }
+  $('sc-toggle').onclick = function () {
+    var paused = S.sched.config.global.paused;
+    if (paused && !window.confirm('Resume the scheduler? Connected accounts will get posts planned and published automatically according to their profiles.')) return;
+    $('sc-toggle').disabled = true; setMsg('sc-msg', 'Saving…', '', true);
+    post_({ action: paused ? 'resumeAll' : 'pauseAll' }).then(function () { return loadSchedule(); }).then(function () { setMsg('sc-msg', paused ? 'Scheduler resumed.' : 'Scheduler paused.', 'ok'); }).catch(function (e) { setMsg('sc-msg', e.message, 'err'); }).then(function () { $('sc-toggle').disabled = false; });
+  };
+  $('sc-save-g').onclick = function () {
+    setMsg('sc-msg', 'Saving…', '', true);
+    post_({ action: 'saveSchedule', global: { catchup_hours: $('sc-catchup').value, max_parallel: $('sc-par').value, max_prepare: $('sc-prep').value, prepare_ahead_hours: $('sc-ahead').value, pause_after_errors: $('sc-err').value } })
+      .then(function () { return loadSchedule(); }).then(function () { setMsg('sc-msg', 'Settings saved.', 'ok'); }).catch(function (e) { setMsg('sc-msg', e.message, 'err'); });
+  };
+
+  // профили
+  var pfInputs = {};
+  function numInput(v, min, max, w) { return h('input', { type: 'number', min: String(min), max: String(max), value: v == null ? '' : String(v), style: 'width:' + (w || 90) + 'px' }); }
+  function renderProfiles() {
+    var list = $('pf-list'); clear(list); pfInputs = {};
+    profileNames().forEach(function (name) {
+      var p = S.profiles[name], f = pfInputs[name] = {};
+      f.enabled = h('input', { type: 'checkbox', style: 'width:auto' }); f.enabled.checked = p.enabled !== false;
+      f.ppd = numInput(p.posts_per_day, 0, 50); f.gap = numInput(p.min_gap_min, 0, 1440, 110);
+      f.win = h('input', { value: fmtWin(p.windows), placeholder: '09:00-13:00, 16:00-22:30' });
+      f.tz = h('input', { value: p.tz, list: 'tz-list', placeholder: 'Europe/Warsaw' });
+      f.days = DOW.map(function (d, i) { var cb = h('input', { type: 'checkbox', style: 'width:auto' }); cb.checked = (p.days || []).indexOf(i + 1) >= 0; return cb; });
+      f.rs = numInput(p.ramp ? p.ramp.start : '', 1, 50, 70); f.re = numInput(p.ramp ? p.ramp.every_days : '', 1, 60, 70);
+      var del = h('button', { class: 'ghost small', text: 'Delete' }); del.onclick = function () {
+        if (profileNames().length <= 1) { setMsg('pf-msg', 'Keep at least one profile.', 'err'); return; }
+        if (!window.confirm('Delete the profile "' + name + '"? Groups and accounts that use it will fall back to the default profile.')) return;
+        collectProfiles(); delete S.profiles[name]; if (S.defProfile === name) S.defProfile = profileNames()[0]; renderProfiles();
+      };
+      var daysBox = h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' }); DOW.forEach(function (d, i) { daysBox.appendChild(h('label', { class: 'small', style: 'display:flex;gap:3px;align-items:center;margin:0' }, f.days[i], d)); });
+      list.appendChild(h('div', { class: 'card', style: 'margin:0' },
+        h('div', { class: 'row between', style: 'margin-bottom:8px' }, h('h2', { text: name }), h('label', { class: 'small', style: 'display:flex;gap:6px;align-items:center;margin:0' }, f.enabled, 'Enabled')),
+        h('div', { class: 'row' }, h('div', null, h('label', { text: 'Posts per day' }), f.ppd), h('div', null, h('label', { text: 'Min. gap (minutes)' }), f.gap)),
+        h('div', { style: 'margin-top:8px' }, h('label', { text: 'Time windows (HH:MM-HH:MM, separated by commas)' }), f.win),
+        h('div', { style: 'margin-top:8px' }, h('label', { text: 'Time zone' }), f.tz),
+        h('div', { style: 'margin-top:8px' }, h('label', { text: 'Days of the week' }), daysBox),
+        h('div', { class: 'row', style: 'margin-top:8px' }, h('div', null, h('label', { text: 'Warm-up: start posts/day' }), f.rs), h('div', null, h('label', { text: '+1 every N days' }), f.re)),
+        h('p', { class: 'small muted', style: 'margin:4px 0 0', text: 'Warm-up (optional): a new account starts with the given number of posts and adds one every N days, up to the number above. Leave empty for no warm-up.' }),
+        h('div', { style: 'margin-top:10px' }, del)));
+    });
+    var dl = $('tz-list'); if (!dl) { dl = h('datalist', { id: 'tz-list' }); document.body.appendChild(dl); TZS.forEach(function (z) { dl.appendChild(h('option', { value: z })); }); }
+    var def = $('pf-default'); clear(def); profileNames().forEach(function (n) { def.appendChild(h('option', { value: n, text: n })); }); def.value = S.defProfile;
+    var gb = $('pf-groups'); clear(gb);
+    var groups = Object.keys(Object.assign({}, S.groupMap, (S.ov && S.ov.groups) || {}, (S.sched && S.sched.groups || []).reduce(function (o, g) { o[g] = 1; return o; }, {}))).sort();
+    if (!groups.length) gb.appendChild(h('tr', null, h('td', { class: 'empty', text: 'No groups yet. Groups are created in the Accounts tab (bulk action “Set group”) or when adding accounts.' })));
+    groups.forEach(function (g) {
+      var sel = h('select'); sel.appendChild(h('option', { value: '', text: 'Default profile' })); profileNames().forEach(function (n) { sel.appendChild(h('option', { value: n, text: n })); });
+      sel.value = S.groupMap[g] && S.profiles[S.groupMap[g]] ? S.groupMap[g] : ''; sel.onchange = function () { if (sel.value) S.groupMap[g] = sel.value; else delete S.groupMap[g]; };
+      gb.appendChild(h('tr', null, h('td', null, h('b', { text: g })), h('td', null, sel)));
+    });
+  }
+  function collectProfiles() {
+    profileNames().forEach(function (name) {
+      var f = pfInputs[name], p = S.profiles[name]; if (!f) return;
+      p.enabled = f.enabled.checked; p.posts_per_day = Number(f.ppd.value); p.min_gap_min = Number(f.gap.value);
+      p.windows = parseWin(f.win.value); p.tz = f.tz.value.trim();
+      p.days = f.days.map(function (cb, i) { return cb.checked ? i + 1 : 0; }).filter(Boolean);
+      p.ramp = f.rs.value ? { start: Number(f.rs.value), every_days: Number(f.re.value) || 1 } : null;
+    });
+    S.defProfile = $('pf-default').value || S.defProfile;
+  }
+  function parseWin(s) { return s.split(/[,;]+/).map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) { var m = /^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/.exec(x); return m ? [m[1], m[2]] : ['x', 'x']; }); }
+  function fmtWin(w) { return (w || []).map(function (x) { return x[0] + '-' + x[1]; }).join(', '); }
+  $('pf-add').onclick = function () {
+    collectProfiles(); var i = 1; while (S.profiles['profile-' + i]) i++;
+    var name = window.prompt('Name for the new profile (letters, digits, spaces, "_" or "-"):', 'profile-' + i);
+    if (!name) return; name = name.trim();
+    if (!/^[A-Za-z0-9_ -]{1,40}$/.test(name) || S.profiles[name]) { setMsg('pf-msg', 'Use a new name with 1-40 letters, digits, spaces, "_" or "-".', 'err'); return; }
+    S.profiles[name] = { posts_per_day: 2, windows: [['10:00', '22:00']], min_gap_min: 120, days: [1, 2, 3, 4, 5, 6, 7], tz: (S.profiles[S.defProfile] || {}).tz || 'UTC', ramp: null, enabled: true };
+    renderProfiles();
+  };
+  $('pf-save').onclick = function () {
+    collectProfiles();
+    var badWin = profileNames().filter(function (n) { return S.profiles[n].windows.some(function (w) { return w[0] === 'x'; }); });
+    if (badWin.length) { setMsg('pf-msg', 'Check the time windows of: ' + badWin.join(', ') + '. Use the format 09:00-13:00, 16:00-22:30.', 'err'); return; }
+    setMsg('pf-msg', 'Saving…', '', true);
+    post_({ action: 'saveSchedule', profiles: S.profiles, default_profile: S.defProfile, group_profile: S.groupMap })
+      .then(function () { return loadSchedule(); }).then(function () { setMsg('pf-msg', 'Profiles saved. The new rules apply to slots planned from now on.', 'ok'); })
+      .catch(function (e) { setMsg('pf-msg', e.message, 'err'); });
+  };
+
+  // лента слотов
+  function renderTimeline() {
+    var sm = S.sched.summary, fa = $('tl-acc').value.trim(), fs_ = $('tl-state').value;
+    var up = (sm.upcoming || []).filter(function (s) { return (!fa || s.account === fa) && (!fs_ || s.state === fs_); });
+    var tb = $('tl-up'); clear(tb);
+    if (!up.length) tb.appendChild(h('tr', null, h('td', { colspan: '4', class: 'empty', text: S.sched.config.global.paused ? 'Nothing planned: the scheduler is paused.' : 'No planned posts yet. They appear after the next scheduler check.' })));
+    up.slice(0, 100).forEach(function (s) {
+      var L = STATE_LABEL[s.state] || [s.state, 'b-wait'], act = h('td');
+      if (s.state === 'planned' || s.state === 'prepared') {
+        var b = h('button', { class: 'link', text: 'Skip' }); b.onclick = function () {
+          if (!window.confirm('Skip this post for ' + s.account + '? The video stays in the inbox.')) return;
+          b.disabled = true; post_({ action: 'skipSlot', id: s.id }).then(function () { return loadSchedule(); }).catch(function (e) { setMsg('tl-note', e.message, 'err'); b.disabled = false; });
+        }; act.appendChild(b);
+      }
+      var when = h('td', { class: 'small', text: shortTime(s.at) }); if (s.manual) when.appendChild(badge('manual', 'b-mute'));
+      tb.appendChild(h('tr', null, when, h('td', { text: s.account }), h('td', null, badge(L[0], L[1])), act));
+    });
+    $('tl-note').textContent = up.length > 100 ? 'Showing the first 100 of ' + up.length + ' planned posts. Use the filters to narrow the list.' : '';
+    var rb = $('tl-rec'); clear(rb);
+    var rec = (sm.recent || []).filter(function (s) { return !fa || s.account === fa; });
+    if (!rec.length) rb.appendChild(h('tr', null, h('td', { colspan: '3', class: 'empty', text: 'No results yet.' })));
+    rec.slice(0, 50).forEach(function (s) {
+      var L = STATE_LABEL[s.state] || [s.state, 'b-wait'];
+      rb.appendChild(h('tr', null, h('td', { class: 'small', text: shortTime(s.at) }), h('td', { text: s.account }), h('td', { class: 'small' }, badge(L[0], L[1]), ' ' + (s.reason || (s.result === 'DryRun' ? 'Test run: nothing was sent to TikTok.' : '')))));
+    });
+  }
+  $('tl-acc').onchange = $('tl-state').onchange = function () { if (S.sched) renderTimeline(); };
+
+  // расписание аккаунта (в подробностях строки)
+  function scheduleBox(a) {
+    var names = S.sched ? Object.keys(S.sched.config.profiles) : [], ov = a.override || {};
+    var sel = h('select', { 'aria-label': 'Schedule profile' }); sel.appendChild(h('option', { value: '', text: 'Profile: from group / default' }));
+    names.forEach(function (n) { sel.appendChild(h('option', { value: n, text: n })); }); sel.value = ov.profile || '';
+    var ppd = h('input', { type: 'number', min: '0', max: '50', placeholder: 'posts/day', value: ov.posts_per_day != null ? String(ov.posts_per_day) : '', style: 'width:110px', 'aria-label': 'Posts per day override' });
+    var saveB = h('button', { class: 'ghost small', text: 'Save schedule' });
+    saveB.onclick = function () {
+      saveB.disabled = true; setMsg('acc-msg', 'Saving…', '', true);
+      post_({ action: 'setOverride', accounts: [a.account], profile: sel.value, posts_per_day: ppd.value === '' ? null : Number(ppd.value) })
+        .then(function () { return Promise.all([loadSchedule(true), reloadAccounts()]); }).then(function () { setMsg('acc-msg', a.account + ': schedule saved.', 'ok'); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); saveB.disabled = false; });
+    };
+    var pauseB = h('button', { class: 'ghost small', text: a.paused ? 'Resume posting' : 'Pause posting' });
+    pauseB.onclick = function () {
+      pauseB.disabled = true; post_({ action: 'pauseAccounts', accounts: [a.account], paused: !a.paused })
+        .then(function () { return Promise.all([loadSchedule(true), reloadAccounts()]); }).then(function () { setMsg('acc-msg', a.account + (a.paused ? ': posting resumed.' : ': posting paused.'), 'ok'); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); pauseB.disabled = false; });
+    };
+    var nowB = h('button', { class: 'ghost small', text: 'Publish now' }); nowB.disabled = !a.connected || a.stock === 0;
+    nowB.onclick = function () {
+      if (!window.confirm('Publish the next video of "' + a.account + '" to TikTok right away?')) return;
+      nowB.disabled = true; post_({ action: 'publishNow', accounts: [a.account] }).then(function (r) { setMsg('acc-msg', r.created ? a.account + ': a post was queued and will start within a minute.' : 'Nothing queued (a manual post is already waiting, or the account is not connected).', r.created ? 'ok' : 'busy'); return loadSchedule(true); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); }).then(function () { nowB.disabled = false; });
+    };
+    return h('div', { style: 'margin-top:12px' }, h('label', { text: 'Schedule' }), h('div', { class: 'row', style: 'flex-wrap:nowrap' }, sel, ppd), h('div', { class: 'row', style: 'margin-top:6px' }, saveB, pauseB, nowB));
+  }
+  function renderBulkProfiles() {
+    var s = $('bulk-profile'); if (!s) return; var cur = s.value; clear(s);
+    s.appendChild(h('option', { value: '', text: 'Profile: from group / default' })); profileNames().forEach(function (n) { s.appendChild(h('option', { value: n, text: n })); }); s.value = cur;
+  }
+  function bulkSchedule(label, body, okText) {
+    var names = Object.keys(S.sel); if (!names.length) return;
+    setMsg('bulk-msg', label, '', true); body.accounts = names;
+    post_(body).then(function (r) { return Promise.all([loadSchedule(true), reloadAccounts()]).then(function () { setMsg('bulk-msg', okText(r), 'ok'); }); }).catch(function (e) { setMsg('bulk-msg', e.message, 'err'); });
+  }
+  $('bulk-pause').onclick = function () { if (window.confirm('Pause posting for ' + selCount() + ' account(s)?')) bulkSchedule('Pausing…', { action: 'pauseAccounts', paused: true }, function (r) { return 'Paused: ' + r.updated + ' account(s).'; }); };
+  $('bulk-resume').onclick = function () { bulkSchedule('Resuming…', { action: 'pauseAccounts', paused: false }, function (r) { return 'Resumed: ' + r.updated + ' account(s).'; }); };
+  $('bulk-now').onclick = function () {
+    var n = selCount(); if (n > 100) { setMsg('bulk-msg', 'Publish now works for up to 100 accounts at once.', 'err'); return; }
+    if (window.confirm('Publish the next video right away for ' + n + ' selected account(s)? Accounts that are not connected or have no videos are skipped.')) bulkSchedule('Queueing…', { action: 'publishNow' }, function (r) { return 'Queued: ' + r.created + ' post(s)' + (r.skipped_count ? ', skipped: ' + r.skipped_count : '') + '.'; });
+  };
+  $('bulk-profile-go').onclick = function () { bulkSchedule('Saving…', { action: 'setOverride', profile: $('bulk-profile').value }, function (r) { return 'Schedule profile set for ' + r.updated + ' account(s).'; }); };
+
+  // ---------- invitations ----------
+  var INVST = { pending: ['Pending', 'b-wait'], opened: ['Opened', 'b-busy'], connected: ['Connected', 'b-ok'], expired: ['Expired', 'b-mute'], revoked: ['Revoked', 'b-mute'] };
+  S.inv = { q: '', status: '', page: 1, batch: [] };
+  function linkOf(token) { return base() + '/webhook/tiktok-invite?t=' + token; }
+  function msgFor(account, link, expires) {
+    return 'Hi! Please connect your TikTok account "' + account + '" to our publishing service: ' + link + '\nThe link works once and is valid until ' + fmt(expires) + '. It opens a short page, then TikTok asks you to approve access. You can remove access at any time in TikTok: Settings and privacy > Security and permissions > Apps and services.';
+  }
+  function showBatch(created, invalid) {
+    S.inv.batch = created;
+    $('inv-batch').value = created.map(function (c) { return c.account + '\t' + c.link; }).join('\n');
+    $('inv-batch-card').hidden = !created.length;
+    setMsg('inv-batch-msg', created.length + ' invitation' + (created.length === 1 ? '' : 's') + ' created' + (invalid ? ', ' + invalid + ' skipped (invalid name)' : '') + '.', 'ok');
+  }
+  function createInvites(accounts, note, days) {
+    return post_({ action: 'createInvites', accounts: accounts, note: note || '', days: days || 7 }).then(function (r) {
+      showBatch(r.created, r.invalid_count); showTab('invites'); return Promise.all([loadInvites(), refreshAll()]).then(function () { return r; });
+    });
+  }
+  $('iv-create').onclick = function () {
+    var names = $('iv-names').value.split(/[\s,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!names.length) { setMsg('iv-msg', 'Enter at least one account name.', 'err'); return; }
+    if (names.length > 200) { setMsg('iv-msg', 'Up to 200 invitations at once.', 'err'); return; }
+    var b = $('iv-create'); b.disabled = true; setMsg('iv-msg', 'Creating…', '', true);
+    createInvites(names, $('iv-note').value.trim(), parseInt($('iv-days').value, 10)).then(function () { setMsg('iv-msg', ''); $('iv-names').value = ''; })
+      .catch(function (e) { setMsg('iv-msg', e.message, 'err'); }).then(function () { b.disabled = false; });
+  };
+  $('bulk-invite').onclick = function () {
+    var names = Object.keys(S.sel); if (!names.length) return;
+    if (names.length > 200) { setMsg('bulk-msg', 'Up to 200 invitations at once.', 'err'); return; }
+    var note = window.prompt('Invited by / note for these ' + names.length + ' invitation(s) (optional):', '');
+    if (note === null) return;
+    setMsg('bulk-msg', 'Creating…', '', true);
+    createInvites(names, note.trim(), 7).then(function () { setMsg('bulk-msg', ''); }).catch(function (e) { setMsg('bulk-msg', e.message, 'err'); });
+  };
+  function downloadCsv() {
+    var rows = [['account', 'link', 'expires_at']].concat(S.inv.batch.map(function (c) { return [c.account, c.link, c.expires_at]; }));
+    var csv = rows.map(function (r) { return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\r\n');
+    var a = h('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: 'invitations.csv' }); document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+  $('inv-copy-all').onclick = function () { copyText($('inv-batch').value, $('inv-copy-all')); };
+  $('inv-copy-msgs').onclick = function () { copyText(S.inv.batch.map(function (c) { return msgFor(c.account, c.link, c.expires_at); }).join('\n\n'), $('inv-copy-msgs')); };
+  $('inv-download').onclick = downloadCsv;
+
+  var invSearch = debounce(function () { S.inv.q = $('inv-q').value.trim(); S.inv.page = 1; loadInvites(); }, 300);
+  $('inv-q').oninput = invSearch;
+  $('inv-st').onchange = function () { S.inv.status = $('inv-st').value; S.inv.page = 1; loadInvites(); };
+  $('inv-prev').onclick = function () { S.inv.page = Math.max(1, S.inv.page - 1); loadInvites(); };
+  $('inv-next').onclick = function () { S.inv.page += 1; loadInvites(); };
+  function loadInvites() {
+    return get_('panel-api', { action: 'invites', q: S.inv.q, status: S.inv.status, page: S.inv.page, size: 50 }).then(function (d) {
+      var c = d.counts, order = ['pending', 'opened', 'connected', 'expired', 'revoked'];
+      $('inv-counts').textContent = order.filter(function (k) { return c[k]; }).map(function (k) { return INVST[k][0] + ' ' + c[k]; }).join(' · ');
+      var body = $('inv-body'); clear(body);
+      if (!d.invites.length) body.appendChild(h('tr', null, h('td', { colspan: '8', class: 'empty', text: 'No invitations yet. Create them in the “Add accounts” tab or with “Invite owners” on selected accounts.' })));
+      d.invites.forEach(function (i) {
+        var st = INVST[i.status] || [i.status, 'b-wait'], act = h('div', { class: 'row', style: 'gap:6px' });
+        if (i.link) {
+          var cp = h('button', { class: 'ghost small', text: 'Copy link' }); cp.onclick = function () { copyText(i.link, cp); }; act.appendChild(cp);
+          var cm = h('button', { class: 'ghost small', text: 'Copy message' }); cm.onclick = function () { copyText(msgFor(i.account, i.link, i.expires_at), cm); }; act.appendChild(cm);
+          var rv = h('button', { class: 'link', text: 'Revoke' }); rv.onclick = function () {
+            if (!window.confirm('Revoke the invitation for "' + i.account + '"? The link stops working.')) return;
+            rv.disabled = true; post_({ action: 'revokeInvite', token: i.token }).then(function () { return Promise.all([loadInvites(), refreshAll()]); }).catch(function (e) { setMsg('inv-msg', e.message, 'err'); rv.disabled = false; });
+          }; act.appendChild(rv);
+        } else {
+          var nw = h('button', { class: 'ghost small', text: i.status === 'connected' ? 'New link (reconnect)' : 'New link' });
+          nw.onclick = function () { nw.disabled = true; createInvites([i.account], i.note, 7).catch(function (e) { setMsg('inv-msg', e.message, 'err'); nw.disabled = false; }); }; act.appendChild(nw);
+        }
+        body.appendChild(h('tr', null, h('td', null, h('b', { text: i.account })), h('td', { class: 'small', text: i.note }), h('td', null, badge(st[0], st[1])),
+          h('td', { class: 'small', text: fmt(i.created_at) }), h('td', { class: 'small', text: i.opened_at ? fmt(i.opened_at) + (i.opens > 1 ? ' (' + i.opens + '×)' : '') : '' }),
+          h('td', { class: 'small', text: i.used_at ? fmt(i.used_at) : '' }), h('td', { class: 'small', text: (i.status === 'pending' || i.status === 'opened' || i.status === 'expired') ? fmt(i.expires_at) : '' }), h('td', null, act)));
+      });
+      $('inv-count').textContent = d.total + ' invitation' + (d.total === 1 ? '' : 's'); $('inv-page').textContent = 'Page ' + d.page + ' of ' + d.pages;
+      $('inv-prev').disabled = d.page <= 1; $('inv-next').disabled = d.page >= d.pages;
+    }).catch(function (e) { setMsg('inv-msg', e.message, 'err'); });
+  }
+  // блок приглашения в подробностях аккаунта
+  function inviteBox(a) {
+    var iv = a.invite, box = h('div', { style: 'margin-top:12px' }, h('label', { text: 'Owner invitation' }));
+    if (iv) {
+      var st = INVST[iv.status] || [iv.status, 'b-wait'];
+      box.appendChild(h('div', { class: 'small' }, badge(st[0], st[1]), ' ' + (iv.note ? iv.note + ' · ' : '') + 'created ' + fmt(iv.created_at)
+        + (iv.status === 'connected' && iv.used_at ? ' · connected ' + fmt(iv.used_at) : '') + ((iv.status === 'pending' || iv.status === 'opened') ? ' · valid until ' + fmt(iv.expires_at) : '')));
+    } else box.appendChild(h('div', { class: 'small muted', text: 'No invitation yet.' }));
+    var row = h('div', { class: 'row', style: 'margin-top:6px' });
+    if (iv && (iv.status === 'pending' || iv.status === 'opened')) {
+      var link = linkOf(iv.token), cp = h('button', { class: 'ghost small', text: 'Copy link' }); cp.onclick = function () { copyText(link, cp); }; row.appendChild(cp);
+      var cm = h('button', { class: 'ghost small', text: 'Copy message' }); cm.onclick = function () { copyText(msgFor(a.account, link, iv.expires_at), cm); }; row.appendChild(cm);
+    }
+    var mk = h('button', { class: 'ghost small', text: iv ? 'New link' : 'Invite owner' });
+    mk.onclick = function () { mk.disabled = true; createInvites([a.account], iv ? iv.note : '', 7).catch(function (e) { setMsg('acc-msg', e.message, 'err'); mk.disabled = false; }); };
+    row.appendChild(mk); box.appendChild(row); return box;
+  }
+
+  // ---------- publish ----------
+  function stopPoll() { if (S.poll) { clearInterval(S.poll); S.poll = null; } }
+  function follow() {
+    stopPoll(); var started = Date.now(), seenBusy = false;
+    S.poll = setInterval(function () {
+      if (document.hidden) return;
+      refreshQueueOnly().then(function () {
+        var q = queueStats(), secs = (Date.now() - started) / 1000, err = q.lastErr && Date.parse(q.lastErr.processed_at) > started - 5000;
+        if (q.busy) seenBusy = true;
+        if (q.busy) setMsg('run-msg', 'Publishing a video… this usually takes a minute or two. You can keep this page open.', 'busy', true);
+        else if (!seenBusy && secs < 40) setMsg('run-msg', 'Starting…', 'busy', true);
+        else if (q.waiting && seenBusy && secs < 40 * 60 && !err) setMsg('run-msg', 'Waiting before the next video (a short pause between posts is normal)…', 'busy', true);
+        else if (err && !q.busy) { stopPoll(); setMsg('run-msg', 'Stopped: ' + friendlyError(q.lastErr.error), 'err'); }
+        else { stopPoll(); setMsg('run-msg', 'Done. See the results in the Queue and Videos tabs.', 'ok'); }
+        if (Date.now() - started > 90 * 60000) { stopPoll(); setMsg('run-msg', 'Still working. Press Refresh later to see the result.', 'busy'); }
+      }).catch(function () { /* повторим на следующем шаге */ });
+    }, 8000);
+  }
+  $('btn-run').onclick = function () {
+    var b = $('btn-run'); b.disabled = true; setMsg('run-msg', 'Starting…', 'busy', true);
+    get_('console-api', { action: 'run' }).then(function (r) { if (r && r.started === false) { setMsg('run-msg', 'Not started: ' + (r.reason || 'unknown reason'), 'err'); b.disabled = false; return; } follow(); }).catch(function (e) { setMsg('run-msg', e.message, 'err'); b.disabled = false; });
+  };
+
+  if ($('server').value && $('key').value) connect(false);
+})();
+</script>
+</body>
+</html>

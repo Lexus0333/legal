@@ -1,0 +1,313 @@
+{
+  "id": "ttConnect000001",
+  "name": "01 TikTok - Connect account",
+  "nodes": [
+    {
+      "id": "3d0937f8-081d-4f8c-a4a1-39ecf7584fe2",
+      "name": "Start (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "tiktok-start",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "b8999f5d-8952-48bb-99c3-9705caad64f2"
+    },
+    {
+      "id": "02f528f6-eee6-458c-b37c-8cdf4a82a4ad",
+      "name": "Key ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{ $json.query.key }}",
+              "rightValue": "={{ $env.CONNECT_SECRET }}"
+            },
+            {
+              "id": "c2",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "leftValue": "={{ $json.query.account }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c38ca528-6a90-4ed4-beed-ca0979503f72",
+      "name": "Go to TikTok",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        -100
+      ],
+      "parameters": {
+        "respondWith": "redirect",
+        "redirectURL": "={{ 'https://www.tiktok.com/v2/auth/authorize/?client_key=' + $env.TIKTOK_CLIENT_KEY + '&scope=' + encodeURIComponent('user.info.basic,video.publish') + '&response_type=code&redirect_uri=' + encodeURIComponent('https://' + $env.N8N_HOST + '/webhook/tiktok-callback') + '&state=' + encodeURIComponent($json.query.account) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "6a3559e8-c0f1-4ff4-9b47-a65d84a9f6cb",
+      "name": "Denied",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        100
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Forbidden",
+        "options": {
+          "responseCode": 403
+        }
+      }
+    },
+    {
+      "id": "21fad78c-a851-4dd7-a3fe-ca1c1ca0e08c",
+      "name": "Callback (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "tiktok-callback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "3f37093f-bb77-4b58-9db3-bb9da3da1ea7"
+    },
+    {
+      "id": "109965b0-121b-4a55-9283-dc5317a13757",
+      "name": "Exchange code for tokens",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://open.tiktokapis.com/v2/oauth/token/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_key",
+              "value": "={{ $env.TIKTOK_CLIENT_KEY }}"
+            },
+            {
+              "name": "client_secret",
+              "value": "={{ $env.TIKTOK_CLIENT_SECRET }}"
+            },
+            {
+              "name": "code",
+              "value": "={{ $json.query.code }}"
+            },
+            {
+              "name": "grant_type",
+              "value": "authorization_code"
+            },
+            {
+              "name": "redirect_uri",
+              "value": "={{ 'https://' + $env.N8N_HOST + '/webhook/tiktok-callback' }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "fb2f690b-89e1-4b82-9e47-55d5e01e503d",
+      "name": "Build row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const t = $input.first().json;\nif (!t.access_token) throw new Error('TikTok did not return a token: ' + JSON.stringify(t));\nconst account = $('Callback (GET)').first().json.query.state;\nconst now = Date.now();\nreturn [{ json: {\n  account,\n  open_id: t.open_id,\n  access_token: t.access_token,\n  refresh_token: t.refresh_token,\n  access_expires_at: now + t.expires_in * 1000,\n  refresh_expires_at: now + t.refresh_expires_in * 1000,\n}}];"
+      }
+    },
+    {
+      "id": "bbe69f73-031d-4d1e-ae91-69ec7aa8fb2b",
+      "name": "Save account (upsert)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        660,
+        400
+      ],
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "tiktok_accounts"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "account",
+              "condition": "eq",
+              "keyValue": "={{ $json.account }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5c2b2caa-d3fc-41c9-bdeb-e88b3c6e9f60",
+      "name": "Done page",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        400
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Account connected</title></head><body style=\"font-family:system-ui,sans-serif;max-width:560px;margin:60px auto;padding:0 16px;line-height:1.6;color:#1d2129\"><h1>Account connected</h1><p>TikTok account <b>{{ $('Build row').first().json.account.replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c])) }}</b> is now connected to EXE Agency Publisher.</p><p><a href=\"https://lexus0333.github.io/legal/console.html\">Back to the console</a></p></body></html>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start (GET)": {
+      "main": [
+        [
+          {
+            "node": "Key ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Key ok?": {
+      "main": [
+        [
+          {
+            "node": "Go to TikTok",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Denied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback (GET)": {
+      "main": [
+        [
+          {
+            "node": "Exchange code for tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exchange code for tokens": {
+      "main": [
+        [
+          {
+            "node": "Build row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build row": {
+      "main": [
+        [
+          {
+            "node": "Save account (upsert)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save account (upsert)": {
+      "main": [
+        [
+          {
+            "node": "Done page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

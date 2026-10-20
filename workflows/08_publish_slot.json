@@ -1,0 +1,384 @@
+{
+  "id": "ttPubSlot0000008",
+  "name": "08 Publish slot",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 1800
+  },
+  "pinData": {},
+  "nodes": [
+    {
+      "id": "c0000008-0000-4000-8000-000000000001",
+      "name": "When called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "c000008-0000-4000-8000-000000000002",
+      "name": "Pick next",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Публикация слота: загружаем данные слота и подготовленного видео в том же виде, что в воркфлоу 04.\nconst fs = require('fs');\nconst LOCKS = '/files/state/locks';\nconst lockAcct = a => {\n  fs.mkdirSync(LOCKS, { recursive: true });\n  const d = LOCKS + '/acct_' + a;\n  try { if (Date.now() - fs.statSync(d).mtimeMs > 20 * 60000) fs.rmSync(d, { recursive: true, force: true }); } catch (e) { /* нет */ }\n  try { fs.mkdirSync(d); return true; } catch (e) { return false; }\n};\nconst unlockAcct = a => { try { fs.rmSync(LOCKS + '/acct_' + a, { recursive: true, force: true }); } catch (e) { /* ok */ } };\nconst slotId = $input.first().json.slot.id;\nconst SF = '/files/plan/' + slotId + '.json';\nconst slot = JSON.parse(fs.readFileSync(SF, 'utf8'));\nconst dir = '/files/prepared/' + slotId;\nif (!fs.existsSync(dir + '/out/src_v1.mp4')) throw new Error('Prepared video not found for slot ' + slotId);\n// С аккаунтом одновременно работает только одна публикация (ручная или по расписанию): если занят, повторяем через 2 минуты.\nif (!lockAcct(slot.account)) {\n  slot.state = 'prepared'; slot.at = new Date(Date.now() + 2 * 60000).toISOString(); slot.updated = Date.now();\n  const t = SF + '.tmp'; fs.writeFileSync(t, JSON.stringify(slot)); fs.renameSync(t, SF);\n  return [];\n}\nconst v = slot.video || {};\nreturn [{ json: { rid: slotId, account: slot.account, file: v.file || '', rel: v.rel || '', ext: '.mp4', src: '', dir, orig: v.orig || '', hint: '', hintOrig: v.hintOrig || '', remaining: 0, n: 0 } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c000008-0000-4000-8000-000000000003",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "client_key",
+              "value": "={{ $env.TIKTOK_CLIENT_KEY }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "client_secret",
+              "value": "={{ $env.TIKTOK_CLIENT_SECRET }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "privacy",
+              "value": "={{ $env.TIKTOK_PRIVACY || 'SELF_ONLY' }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "telegram_chat_id",
+              "value": "={{ $env.TELEGRAM_CHAT_ID }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c000008-0000-4000-8000-000000000004",
+      "name": "AI copy",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst r = $('Pick next').first().json;\nconst meta = JSON.parse(fs.readFileSync(r.dir + '/meta.json', 'utf8'));\nreturn [{ json: { copy: { hook: meta.hook || '', caption: meta.caption || '', hashtags: meta.hashtags || [] }, ai_used: !!meta.ai_used, ai_error: meta.ai_error || '' } }];"
+      }
+    },
+    {
+      "id": "c000008-0000-4000-8000-000000000005",
+      "name": "Get tokens",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SSWsIdTjYaqpXDiV"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "account",
+              "condition": "eq",
+              "keyValue": "={{ $('Pick next').first().json.account }}"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": 1
+      },
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c000008-0000-4000-8000-000000000006",
+      "name": "Token logic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst tkey = () => crypto.scryptSync(String($env.N8N_ENCRYPTION_KEY || $env.CONNECT_SECRET || ''), 'tt-tokens-v1', 32);\nconst encTok = s => {\n  if (!s) return s;\n  const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', tkey(), iv);\n  const d = Buffer.concat([c.update(String(s), 'utf8'), c.final()]);\n  return 'enc:' + iv.toString('base64') + ':' + c.getAuthTag().toString('base64') + ':' + d.toString('base64');\n};\nconst decTok = s => {\n  if (!s || !String(s).startsWith('enc:')) return s;\n  const p = String(s).split(':'), k = crypto.createDecipheriv('aes-256-gcm', tkey(), Buffer.from(p[1], 'base64'));\n  k.setAuthTag(Buffer.from(p[2], 'base64'));\n  return Buffer.concat([k.update(Buffer.from(p[3], 'base64')), k.final()]).toString('utf8');\n};\n// Токены в таблице хранятся зашифрованными; если скоро истекает access-токен, обновляем его через refresh-токен.\nconst cfg = $('Config').first().json;\nconst acc = $('Pick next').first().json.account;\nconst row = $input.first().json;\nif (!row || !row.access_token) throw new Error('Account \"' + acc + '\" is not connected. Connect it from the console or with an invitation link.');\nconst now = Date.now();\nif (Number(row.refresh_expires_at) < now) throw new Error('Refresh token expired for \"' + acc + '\". Reconnect the account.');\nlet t;\ntry { t = { access_token: decTok(row.access_token), refresh_token: decTok(row.refresh_token), access_expires_at: Number(row.access_expires_at), refresh_expires_at: Number(row.refresh_expires_at) }; }\ncatch (e) { throw new Error('Account \"' + acc + '\" is not connected: the stored login could not be read. Reconnect the account.'); }\nif (t.access_expires_at - now < 10 * 60 * 1000) {\n  const body = new URLSearchParams({ client_key: cfg.client_key, client_secret: cfg.client_secret, grant_type: 'refresh_token', refresh_token: t.refresh_token }).toString();\n  let r;\n  try { r = await this.helpers.httpRequest({ method: 'POST', url: 'https://open.tiktokapis.com/v2/oauth/token/', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body, json: true }); }\n  catch (e) { const m = String(e.message); throw new Error((/ECONN|ETIMEDOUT|EAI_AGAIN|socket|timed? ?out|status code 5\\d\\d|\\b429\\b/i.test(m) ? '[transient] ' : '') + 'Token refresh failed: ' + m.slice(0, 200)); }\n  if (!r.access_token) throw new Error('Token refresh failed: ' + JSON.stringify(r).slice(0, 300));\n  t = { access_token: r.access_token, refresh_token: r.refresh_token || t.refresh_token, access_expires_at: now + r.expires_in * 1000, refresh_expires_at: r.refresh_expires_in ? now + r.refresh_expires_in * 1000 : t.refresh_expires_at };\n}\nreturn [{ json: { account: acc, access_token: t.access_token, refresh_token: t.refresh_token, access_expires_at: t.access_expires_at, refresh_expires_at: t.refresh_expires_at,\n  save_access_token: encTok(t.access_token), save_refresh_token: encTok(t.refresh_token) } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c000008-0000-4000-8000-000000000007",
+      "name": "Save tokens",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        0
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SSWsIdTjYaqpXDiV"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "account",
+              "condition": "eq",
+              "keyValue": "={{ $json.account }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "access_token": "={{ $json.save_access_token }}",
+            "refresh_token": "={{ $json.save_refresh_token }}",
+            "access_expires_at": "={{ $json.access_expires_at }}",
+            "refresh_expires_at": "={{ $json.refresh_expires_at }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c000008-0000-4000-8000-000000000008",
+      "name": "Upload to TikTok",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst https = require('https');\nconst MARKD = '/files/state/published';\nconst mkHash = o => { let st = null; try { st = fs.statSync(o); } catch (e) { st = null; } return require('crypto').createHash('sha1').update(o + '|' + (st ? st.size : 0) + '|' + (st ? Math.floor(st.mtimeMs / 1000) : 0)).digest('hex'); };\nconst markFile = o => MARKD + '/' + mkHash(o) + '.json';\nconst isMarked = o => { try { return fs.existsSync(markFile(o)); } catch (e) { return false; } };\nconst writeMark = (o, info) => { fs.mkdirSync(MARKD, { recursive: true }); fs.writeFileSync(markFile(o), JSON.stringify(Object.assign({ orig: o, at: new Date().toISOString() }, info))); };\nconst clearMark = o => { try { fs.unlinkSync(markFile(o)); } catch (e) { /* метки не было */ } };\nconst cfg = $('Config').first().json;\nconst tok = $('Token logic').first().json.access_token;\nconst row = $('Pick next').first().json;\nconst cap = $('AI copy').first().json.copy;\nconst tags = (cap.hashtags || []).map(h => '#' + String(h).replace(/^#/, '').replace(/\\s+/g, '')).join(' ');\nconst title = (String(cap.caption || '') + ' ' + tags).trim().slice(0, 2200);\nif ($env.DRY_RUN === '1') return [{ json: { publish_id: 'dry-run', tiktok_status: 'DRY_RUN', title, privacy: cfg.privacy, params: '{}' } }];\n\nconst filePath = row.dir + '/out/src_v1.mp4';\nconst size = fs.statSync(filePath).size;\nconst TRANS = /ECONN|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|socket hang up|timed? ?out|status code 5\\d\\d|HTTP 5\\d\\d|\\b429\\b/i;\nconst wait = ms => new Promise(r => setTimeout(r, ms));\n// Запрос к TikTok: временные сбои (сеть, 5xx, 429) повторяются с нарастающей паузой и помечаются как [transient].\nconst api = async (path, body, tries) => {\n  const max = tries || 1; let last;\n  for (let a = 1; a <= max; a++) {\n    try {\n      return await this.helpers.httpRequest({ method: 'POST', url: 'https://open.tiktokapis.com' + path,\n        headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json; charset=UTF-8' }, body, json: true });\n    } catch (e) {\n      const b = (e.response && (e.response.body || e.response.data)) || (e.context && e.context.data) || e.description || '';\n      const msg = path + ': ' + e.message + ' ' + (typeof b === 'string' ? b : JSON.stringify(b)).slice(0, 500);\n      last = new Error((TRANS.test(msg) ? '[transient] ' : '') + msg);\n      if (!TRANS.test(msg) || a === max) break;\n      await wait(2000 * a * a);\n    }\n  }\n  throw last;\n};\nconst check = (r, what) => { if (r.error && r.error.code && r.error.code !== 'ok') throw new Error(what + ': ' + JSON.stringify(r.error)); return r; };\n\nconst info = check(await api('/v2/post/publish/creator_info/query/', {}, 3), 'creator_info');\nconst allowed = (info.data && info.data.privacy_level_options) || [];\nconst privacy = cfg.privacy;\nif (allowed.length && !allowed.includes(privacy)) throw new Error('Privacy ' + privacy + ' not allowed for this account now. Allowed: ' + allowed.join(', '));\n// Длительность проверяем до загрузки: TikTok задаёт максимум для аккаунта, а длительность готового ролика записана в variants.csv.\nconst maxSec = Number(info.data && info.data.max_video_post_duration_sec) || 0;\nlet dur = 0;\ntry { const rows = fs.readFileSync(row.dir + '/out/variants.csv', 'utf8').trim().split('\\n'); dur = Number(rows[rows.length - 1].split(',').pop()) || 0; } catch (e) { dur = 0; }\nif (maxSec && dur > maxSec) throw new Error('Video is too long: ' + Math.round(dur) + ' s, TikTok allows up to ' + maxSec + ' s for this account.');\n// Метка «создано ИИ»: по умолчанию включена; для аккаунта отключается флагом aigc=false в настройках аккаунта, для всех: AIGC_LABEL=0.\nlet accCfg = {}; try { accCfg = JSON.parse(fs.readFileSync('/files/accounts.json', 'utf8'))[row.account] || {}; } catch (e) { accCfg = {}; }\nconst aigc = typeof accCfg.aigc === 'boolean' ? accCfg.aigc : String($env.AIGC_LABEL || '1') !== '0';\n\n// Правила TikTok: до 64 MB - одним куском; больше - куски по 32 MB, остаток уходит в последний.\nconst MB = 1024 * 1024;\nlet chunk = size, count = 1;\nif (size > 64 * MB) { chunk = 32 * MB; count = Math.floor(size / chunk); }\n\nconst init = check(await api('/v2/post/publish/video/init/', {\n  post_info: { title, privacy_level: privacy, disable_duet: false, disable_comment: false, disable_stitch: false, is_aigc: aigc },\n  source_info: { source: 'FILE_UPLOAD', video_size: size, chunk_size: chunk, total_chunk_count: count },\n}, 2), 'init');\nconst { publish_id, upload_url } = init.data;\n// С этого момента видео может оказаться в TikTok: помечаем исходник, чтобы при любом сбое его не выложили второй раз.\nif (row.orig) writeMark(row.orig, { state: 'uploading', publish_id, account: row.account });\n\nconst putChunk = (start, end) => new Promise((resolve, reject) => {\n  const m = String(upload_url).match(/^https:\\/\\/([^\\/]+)(\\/.*)$/);\n  if (!m) return reject(new Error('bad upload_url'));\n  const req = https.request({ method: 'PUT', hostname: m[1], path: m[2],\n    headers: { 'Content-Type': 'video/mp4', 'Content-Length': end - start + 1, 'Content-Range': 'bytes ' + start + '-' + end + '/' + size } },\n    res => { let b = ''; res.on('data', d => { b += d; }); res.on('end', () => (res.statusCode < 300 ? resolve() : reject(new Error('HTTP ' + res.statusCode + ' ' + b.slice(0, 300))))); });\n  req.on('error', reject);\n  fs.createReadStream(filePath, { start, end }).pipe(req);\n});\nfor (let i = 0; i < count; i++) {\n  const start = i * chunk;\n  const end = i === count - 1 ? size - 1 : start + chunk - 1;\n  let lastErr = '';\n  for (let attempt = 1; attempt <= 3; attempt++) {\n    try { await putChunk(start, end); lastErr = ''; break; }\n    catch (e) { lastErr = 'upload chunk ' + (i + 1) + '/' + count + ' attempt ' + attempt + ': ' + e.message; await wait(5000); }\n  }\n  // Файл не доехал целиком: в TikTok ничего не опубликовано, метку снимаем, повтор безопасен.\n  if (lastErr) { clearMark(row.orig); throw new Error('[transient] ' + lastErr); }\n}\n\n// Опрос статуса. Видео уже загружено, поэтому сбой опроса НЕ означает неудачу публикации: после 5 ошибок подряд статус остаётся «неизвестен».\nlet status = 'PROCESSING_UPLOAD', fail = '', errs = 0;\nfor (let k = 0; k < 30; k++) {\n  await wait(6000);\n  try {\n    const s = check(await api('/v2/post/publish/status/fetch/', { publish_id }, 1), 'status');\n    errs = 0; status = (s.data && s.data.status) || status;\n    if (['PUBLISH_COMPLETE', 'FAILED', 'SEND_TO_USER_INBOX'].includes(status)) { fail = (s.data && s.data.fail_reason) || ''; break; }\n  } catch (e) { errs++; if (errs >= 5) { status = 'UNKNOWN'; break; } }\n}\nif (status === 'FAILED') { clearMark(row.orig); throw new Error('TikTok FAILED: ' + fail); }\nif (row.orig) writeMark(row.orig, { state: status === 'PUBLISH_COMPLETE' ? 'published' : 'unconfirmed', publish_id, account: row.account });\nreturn [{ json: { publish_id, tiktok_status: status, title, privacy, params: JSON.stringify({ hook: cap.hook, account: row.account }) } }];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "c000008-0000-4000-8000-000000000009",
+      "name": "Finish",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst r = $('Pick next').first().json;\nconst u = $input.first().json;\nconst ai = $('AI copy').first().json;\nconst slot = JSON.parse(fs.readFileSync('/files/plan/' + r.rid + '.json', 'utf8'));\nconst LOCKS = '/files/state/locks';\nconst lockAcct = a => {\n  fs.mkdirSync(LOCKS, { recursive: true });\n  const d = LOCKS + '/acct_' + a;\n  try { if (Date.now() - fs.statSync(d).mtimeMs > 20 * 60000) fs.rmSync(d, { recursive: true, force: true }); } catch (e) { /* нет */ }\n  try { fs.mkdirSync(d); return true; } catch (e) { return false; }\n};\nconst unlockAcct = a => { try { fs.rmSync(LOCKS + '/acct_' + a, { recursive: true, force: true }); } catch (e) { /* ok */ } };\nconst EXT = /\\.(mp4|mov|m4v)$/i;\nconst stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);\nconst base = String((r && r.file) || 'video').replace(/\\.[^.]+$/, '');\nconst uniq = (p) => { if (!fs.existsSync(p)) return p; const x = path.extname(p); return p.slice(0, p.length - x.length) + '_' + stamp + x; };\nconst uniqDir = (p) => (fs.existsSync(p) ? p + '_' + stamp : p);\n// Если в папке один ролик, переносится вся папка; если несколько, только этот ролик и его текст.\nconst archive = (destRoot) => {\n  fs.mkdirSync(destRoot, { recursive: true });\n  const folderDir = path.dirname(r.orig);\n  const videosHere = fs.readdirSync(folderDir).filter(x => EXT.test(x)).length;\n  if (r.rel !== '' && videosHere === 1) {\n    const target = uniqDir(path.join(destRoot, path.basename(folderDir)));\n    fs.renameSync(folderDir, target);\n    return target;\n  }\n  const target = r.rel !== '' ? path.join(destRoot, path.basename(folderDir)) : path.join(destRoot, stamp + '_' + base);\n  fs.mkdirSync(target, { recursive: true });\n  fs.renameSync(r.orig, uniq(path.join(target, r.file)));\n  if (r.hintOrig && fs.existsSync(r.hintOrig)) fs.renameSync(r.hintOrig, uniq(path.join(target, path.basename(r.hintOrig))));\n  return target;\n};\nconst writeSlot = (s) => { s.updated = Date.now(); const f = '/files/plan/' + s.id + '.json', t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(s)); fs.renameSync(t, f); };\nconst st = u.tiktok_status === 'PUBLISH_COMPLETE' ? 'Posted' : (u.tiktok_status === 'DRY_RUN' ? 'DryRun' : 'Check');\nconst music = (slot.meta && slot.meta.music) || '';\nlet archErr = '';\ntry {\n  if (st !== 'DryRun') {\n    // Видео уже в TikTok (метка поставлена при загрузке): сбой переноса папки не приведёт к повторной публикации.\n    const target = archive(path.join('/files/done', r.account));\n    const finalVideo = r.dir + '/out/src_v1.mp4';\n    if (fs.existsSync(finalVideo)) fs.copyFileSync(finalVideo, uniq(path.join(target, base + '_published.mp4')));\n    fs.writeFileSync(uniq(path.join(target, base + '_post.json')), JSON.stringify({ posted_at: new Date().toISOString(), account: r.account, source: r.file,\n      hook: ai.copy.hook, caption: u.title, publish_id: u.publish_id, tiktok_status: u.tiktok_status, privacy: u.privacy, music, slot: r.rid }, null, 2));\n  }\n} catch (e) { archErr = String(e.message).slice(0, 200); slot.archive_error = archErr; }\nfs.appendFileSync('/files/posts.jsonl', JSON.stringify({ at: new Date().toISOString(), id: r.rid, account: r.account, file: r.file, rel: r.rel, status: st,\n  hook: ai.copy.hook, caption: u.title, publish_id: u.publish_id, tiktok_status: u.tiktok_status, privacy: u.privacy, ai_used: ai.ai_used, ai_error: ai.ai_error, music, slot: r.rid, archive_error: archErr }) + '\\n');\nfs.rmSync(r.dir, { recursive: true, force: true });\nslot.state = 'done'; slot.result = st; slot.published_at = new Date().toISOString(); writeSlot(slot);\ntry { fs.unlinkSync('/files/state/errors/' + r.account + '.json'); } catch (e) { /* счётчика не было */ }\nunlockAcct(r.account);\nreturn [{ json: { status: st } }];"
+      }
+    },
+    {
+      "id": "c000008-0000-4000-8000-00000000000a",
+      "name": "Fail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        240
+      ],
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst slotId = $('When called').first().json.slot.id;\nlet r = null; try { r = $('Pick next').first().json; } catch (e) { r = null; }\nlet slot; try { slot = JSON.parse(fs.readFileSync('/files/plan/' + slotId + '.json', 'utf8')); } catch (e) { return []; }\nif (slot.state !== 'publishing') return [];\nconst MARKD = '/files/state/published';\nconst mkHash = o => { let st = null; try { st = fs.statSync(o); } catch (e) { st = null; } return require('crypto').createHash('sha1').update(o + '|' + (st ? st.size : 0) + '|' + (st ? Math.floor(st.mtimeMs / 1000) : 0)).digest('hex'); };\nconst markFile = o => MARKD + '/' + mkHash(o) + '.json';\nconst isMarked = o => { try { return fs.existsSync(markFile(o)); } catch (e) { return false; } };\nconst writeMark = (o, info) => { fs.mkdirSync(MARKD, { recursive: true }); fs.writeFileSync(markFile(o), JSON.stringify(Object.assign({ orig: o, at: new Date().toISOString() }, info))); };\nconst clearMark = o => { try { fs.unlinkSync(markFile(o)); } catch (e) { /* метки не было */ } };\nconst LOCKS = '/files/state/locks';\nconst lockAcct = a => {\n  fs.mkdirSync(LOCKS, { recursive: true });\n  const d = LOCKS + '/acct_' + a;\n  try { if (Date.now() - fs.statSync(d).mtimeMs > 20 * 60000) fs.rmSync(d, { recursive: true, force: true }); } catch (e) { /* нет */ }\n  try { fs.mkdirSync(d); return true; } catch (e) { return false; }\n};\nconst unlockAcct = a => { try { fs.rmSync(LOCKS + '/acct_' + a, { recursive: true, force: true }); } catch (e) { /* ok */ } };\nconst SYS_RE = /not connected|Refresh token expired|allowed for this account|unaudited_client|invalid_client|access_token_invalid|scope_not_authorized|invalid_grant|could not be read/i;\nconst DAILY_RE = /spam_risk|too_many_posts|reached_active_user_cap|daily_post|daily limit/i;\nconst TRANSIENT_RE = /^\\[transient\\]|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|socket hang up|timed? ?out|status code 5\\d\\d|HTTP 5\\d\\d|service_unavailable|\\b429\\b/i;\nconst pauseAccount = (account, reason, until) => {\n  fs.mkdirSync('/files/state/paused', { recursive: true });\n  fs.writeFileSync('/files/state/paused/' + account + '.json', JSON.stringify(Object.assign({ reason: String(reason).slice(0, 300), at: new Date().toISOString() }, until ? { until } : {})));\n};\nconst bumpErrors = (account, limit) => {\n  fs.mkdirSync('/files/state/errors', { recursive: true });\n  const ef = '/files/state/errors/' + account + '.json'; let c = 0; try { c = JSON.parse(fs.readFileSync(ef, 'utf8')).count || 0; } catch (e) { c = 0; }\n  c++; fs.writeFileSync(ef, JSON.stringify({ count: c, at: new Date().toISOString() }));\n  return c >= limit ? c : 0;\n};\nconst EXT = /\\.(mp4|mov|m4v)$/i;\nconst stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);\nconst base = String((r && r.file) || 'video').replace(/\\.[^.]+$/, '');\nconst uniq = (p) => { if (!fs.existsSync(p)) return p; const x = path.extname(p); return p.slice(0, p.length - x.length) + '_' + stamp + x; };\nconst uniqDir = (p) => (fs.existsSync(p) ? p + '_' + stamp : p);\n// Если в папке один ролик, переносится вся папка; если несколько, только этот ролик и его текст.\nconst archive = (destRoot) => {\n  fs.mkdirSync(destRoot, { recursive: true });\n  const folderDir = path.dirname(r.orig);\n  const videosHere = fs.readdirSync(folderDir).filter(x => EXT.test(x)).length;\n  if (r.rel !== '' && videosHere === 1) {\n    const target = uniqDir(path.join(destRoot, path.basename(folderDir)));\n    fs.renameSync(folderDir, target);\n    return target;\n  }\n  const target = r.rel !== '' ? path.join(destRoot, path.basename(folderDir)) : path.join(destRoot, stamp + '_' + base);\n  fs.mkdirSync(target, { recursive: true });\n  fs.renameSync(r.orig, uniq(path.join(target, r.file)));\n  if (r.hintOrig && fs.existsSync(r.hintOrig)) fs.renameSync(r.hintOrig, uniq(path.join(target, path.basename(r.hintOrig))));\n  return target;\n};\nconst writeSlot = (s) => { s.updated = Date.now(); const f = '/files/plan/' + s.id + '.json', t = f + '.tmp'; fs.writeFileSync(t, JSON.stringify(s)); fs.renameSync(t, f); };\nconst e = $json.error;\nconst msg = String(typeof e === 'string' ? e : (e && e.message) || JSON.stringify($json)).slice(0, 400);\nconst systemic = SYS_RE.test(msg);\nconst daily = !systemic && DAILY_RE.test(msg);\nconst transient = !systemic && !daily && TRANSIENT_RE.test(msg);\nlet sch = {}; try { sch = JSON.parse(fs.readFileSync('/files/schedule.json', 'utf8')); } catch (er) { sch = {}; }\nconst limit = Number(((sch.global || {}).pause_after_errors)) || 3;\nconst marked = !!(r && r.orig && isMarked(r.orig));\n// Временный сбой: слот повторяется позже (до 4 раз), видео остаётся на месте, уведомления не шлём.\nif (transient && !marked) {\n  slot.pub_attempts = (slot.pub_attempts || 0) + 1;\n  if (slot.pub_attempts < 4) {\n    slot.state = 'prepared'; slot.error = msg; slot.at = new Date(Date.now() + Math.min(30, 5 * slot.pub_attempts) * 60000).toISOString();\n    writeSlot(slot); unlockAcct(slot.account);\n    fs.appendFileSync('/files/posts.jsonl', JSON.stringify({ at: new Date().toISOString(), id: slotId, account: slot.account, file: (r && r.file) || '', rel: (r && r.rel) || '', status: 'Error', error: 'Temporary problem, will retry: ' + msg, kept: true, slot: slotId }) + '\\n');\n    return [];\n  }\n}\nif (systemic) pauseAccount(slot.account, msg);\nelse if (daily) pauseAccount(slot.account, 'TikTok daily limit: ' + msg, new Date(Date.now() + 6 * 3600000).toISOString());\nelse { const c = bumpErrors(slot.account, limit); if (c) pauseAccount(slot.account, c + ' errors in a row. Last: ' + msg); }\nconst keep = systemic || daily || transient || marked;\nfs.appendFileSync('/files/posts.jsonl', JSON.stringify({ at: new Date().toISOString(), id: slotId, account: slot.account, file: (r && r.file) || '', rel: (r && r.rel) || '', status: 'Error', error: msg, kept: keep, slot: slotId }) + '\\n');\ntry {\n  if (r && !keep && r.orig && fs.existsSync(r.orig)) {\n    const target = archive(path.join('/files/failed', r.account));\n    fs.writeFileSync(uniq(path.join(target, base + '_error.txt')), msg + '\\n');\n  }\n} catch (er) { /* не критично */ }\ntry { fs.rmSync('/files/prepared/' + slotId, { recursive: true, force: true }); } catch (er) { /* нет папки */ }\nslot.state = 'failed'; slot.error = msg; writeSlot(slot);\nunlockAcct(slot.account);\nreturn [{ json: { error: msg, systemic: systemic || daily, file: (r && r.file) || '', account: slot.account } }];"
+      }
+    },
+    {
+      "id": "c000008-0000-4000-8000-00000000000b",
+      "name": "Telegram alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        240
+      ],
+      "parameters": {
+        "chatId": "={{ $('Config').first().json.telegram_chat_id }}",
+        "text": "={{ 'TikTok scheduler: error for ' + $json.account + ' (' + $json.file + '): ' + $json.error + ($json.systemic ? ' [account paused]' : '') }}",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "",
+          "name": "Telegram bot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "When called": {
+      "main": [
+        [
+          {
+            "node": "Pick next",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick next": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "AI copy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI copy": {
+      "main": [
+        [
+          {
+            "node": "Get tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get tokens": {
+      "main": [
+        [
+          {
+            "node": "Token logic",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token logic": {
+      "main": [
+        [
+          {
+            "node": "Save tokens",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save tokens": {
+      "main": [
+        [
+          {
+            "node": "Upload to TikTok",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to TikTok": {
+      "main": [
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fail": {
+      "main": [
+        [
+          {
+            "node": "Telegram alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

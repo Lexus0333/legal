@@ -1,0 +1,86 @@
+# Запуск n8n на своём ПК (Docker Desktop). Без сервера: база SQLite внутри тома, без Caddy.
+# Запуск: docker compose -f docker-compose.local.yml --env-file .env up -d --build
+services:
+  n8n:
+    build:
+      context: .
+      args:
+        N8N_VERSION: ${N8N_VERSION}
+    image: n8n-ffmpeg:${N8N_VERSION}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"   # доступ только с этого ПК
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_HOST: ${N8N_HOST}
+      N8N_PROTOCOL: https
+      N8N_PROXY_HOPS: "2"
+      WEBHOOK_URL: https://${N8N_HOST}/
+      N8N_SECURE_COOKIE: "false"     # локальный вход по http://localhost:5678
+      N8N_EDITOR_BASE_URL: http://localhost:5678   # адрес редактора: от него строится OAuth-адрес возврата Google
+      GENERIC_TIMEZONE: ${TZ}
+      TZ: ${TZ}
+      NODES_EXCLUDE: "[]"
+      NODE_FUNCTION_ALLOW_BUILTIN: "fs,https,http,path,crypto"   # нужно для потоковой загрузки видео в TikTok (узел Upload to TikTok)
+      N8N_RESTRICT_FILE_ACCESS_TO: /files
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      TIKTOK_CLIENT_KEY: ${TIKTOK_CLIENT_KEY}
+      TIKTOK_CLIENT_SECRET: ${TIKTOK_CLIENT_SECRET}
+      TIKTOK_PRIVACY: ${TIKTOK_PRIVACY:-SELF_ONLY}
+      CONNECT_SECRET: ${CONNECT_SECRET}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      POST_JITTER_SEC: ${POST_JITTER_SEC:-900}
+      # Публикация из папки inbox: ИИ для хука и подписи (любой сервис с OpenAI-совместимым API), паузы, тест без публикации
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_LANGUAGE: ${AI_LANGUAGE:-}
+      DEFAULT_ACCOUNT: ${DEFAULT_ACCOUNT:-account1}
+      POST_PAUSE_MIN_SEC: ${POST_PAUSE_MIN_SEC:-300}
+      POST_PAUSE_MAX_SEC: ${POST_PAUSE_MAX_SEC:-900}
+      DRY_RUN: ${DRY_RUN:-0}
+      MAX_POSTS_PER_RUN: ${MAX_POSTS_PER_RUN:-5}
+      DEFAULT_CAPTION: ${DEFAULT_CAPTION:-}
+      DEFAULT_HASHTAGS: ${DEFAULT_HASHTAGS:-}
+      POOL_LANG: ${POOL_LANG:-en}
+      STATS_ENABLED: ${STATS_ENABLED:-0}
+      # Музыка: off | silent (только видео без звука) | mix (и к видео со звуком, тише оригинала)
+      MUSIC_MODE: ${MUSIC_MODE:-silent}
+      MUSIC_VOLUME: ${MUSIC_VOLUME:-1}
+      MUSIC_SILENCE_DB: ${MUSIC_SILENCE_DB:--45}
+      MOOD_MOTION_HIGH: ${MOOD_MOTION_HIGH:-10}
+      MOOD_LUMA_DARK: ${MOOD_LUMA_DARK:-105}
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "72"
+      EXECUTIONS_DATA_PRUNE_MAX_COUNT: "3000"
+      SITE_URL: ${SITE_URL:-https://lexus0333.github.io/legal}
+      AIGC_LABEL: ${AIGC_LABEL:-1}
+      HEARTBEAT_URL: ${HEARTBEAT_URL:-}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./files:/files
+
+  # Публичный HTTPS-адрес для подключения аккаунтов TikTok. Запуск только когда нужен:
+  #   docker compose -f docker-compose.local.yml --env-file .env --profile tunnel up -d gate ngrok
+  # Наружу через шлюз отдаются только вебхуки (/webhook/*), редактор n8n из интернета недоступен.
+  gate:
+    image: caddy:2-alpine
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    depends_on:
+      - n8n
+    volumes:
+      - ./Caddyfile.gate:/etc/caddy/Caddyfile:ro
+
+  ngrok:
+    image: ngrok/ngrok:3
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    depends_on:
+      - gate
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    command: http gate:8080 --url=${N8N_HOST}
+
+volumes:
+  n8n_data:
