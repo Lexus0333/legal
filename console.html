@@ -121,6 +121,7 @@ a{color:var(--accent)}
       <button class="tab" data-tab="videos">Videos</button>
       <button class="tab" data-tab="texts">Texts</button>
       <button class="tab" data-tab="add">Add accounts</button>
+      <button class="tab" data-tab="invites">Invitations</button>
     </nav>
 
     <!-- ACCOUNTS -->
@@ -140,7 +141,7 @@ a{color:var(--accent)}
             <div><label for="bulk-from">Copy texts from account (empty = default lists)</label><div class="row" style="flex-wrap:nowrap"><input id="bulk-from" list="names-list" placeholder="account name" style="min-width:170px"><button class="ghost small" id="bulk-copy-go">Copy</button></div></div>
           </div>
           <div class="row" style="margin-top:10px">
-            <button class="ghost small" id="bulk-pause">Pause posting</button><button class="ghost small" id="bulk-resume">Resume posting</button><button class="ghost small" id="bulk-now">Publish now</button>
+            <button class="ghost small" id="bulk-pause">Pause posting</button><button class="ghost small" id="bulk-resume">Resume posting</button><button class="ghost small" id="bulk-now">Publish now</button><button class="ghost small" id="bulk-invite">Invite owners</button>
             <div class="row" style="flex-wrap:nowrap"><select id="bulk-profile" aria-label="Schedule profile"></select><button class="ghost small" id="bulk-profile-go">Set schedule profile</button></div>
           </div>
           <p class="msg" id="bulk-msg"></p>
@@ -256,12 +257,43 @@ a{color:var(--accent)}
         <p class="msg" id="add-msg"></p>
       </div>
       <div class="card">
+        <h2>Invite account owners</h2>
+        <p class="muted small" style="margin:0 0 10px">The person who owns a TikTok account connects it by themselves through a personal one-time link. They never see your access key. Accounts that are not in the list yet are added automatically.</p>
+        <div class="row">
+          <div class="grow"><label for="iv-names">Account names (one per line)</label><textarea id="iv-names" style="min-height:110px" placeholder="account2&#10;account3"></textarea></div>
+          <div style="min-width:230px"><label for="iv-note">Invited by / note (optional)</label><input id="iv-note" placeholder="e.g. contractor Anna" autocomplete="off">
+            <label for="iv-days" style="margin-top:8px">Valid for</label><select id="iv-days"><option value="3">3 days</option><option value="7" selected>7 days</option><option value="14">14 days</option><option value="30">30 days</option></select>
+            <div style="margin-top:10px"><button id="iv-create">Create invitations</button></div></div>
+        </div>
+        <p class="msg" id="iv-msg"></p>
+      </div>
+      <div class="card">
         <h2>Connect an account to TikTok</h2>
         <p class="muted small" style="margin:0 0 10px">You will be sent to TikTok to sign in and approve access (basic profile info and posting of videos), then brought back here.</p>
         <div class="row">
           <div class="grow" style="max-width:340px"><label for="acc-name">Account name</label><input id="acc-name" list="names-list" value="account1" autocomplete="off"></div>
           <button id="btn-add">Connect TikTok account</button>
         </div>
+      </div>
+    </section>
+    <!-- INVITES -->
+    <section data-pane="invites" hidden>
+      <div class="card" id="inv-batch-card" hidden>
+        <h2>New invitations</h2>
+        <p class="muted small" style="margin:0 0 8px">Send every owner their personal link. A link works once and replaces the previous link of the same account.</p>
+        <textarea id="inv-batch" readonly style="min-height:120px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px"></textarea>
+        <div class="row" style="margin-top:8px"><button id="inv-copy-all" class="ghost">Copy all (name and link)</button><button id="inv-copy-msgs" class="ghost">Copy ready-to-send messages</button><button id="inv-download" class="ghost">Download CSV</button></div>
+        <p class="msg" id="inv-batch-msg"></p>
+      </div>
+      <div class="card">
+        <div class="row between"><h2>Invitations</h2><div class="small muted" id="inv-counts"></div></div>
+        <div class="row" style="margin:8px 0">
+          <div class="grow" style="max-width:300px"><label for="inv-q">Search</label><input id="inv-q" placeholder="Account or note…" autocomplete="off"></div>
+          <div><label for="inv-st">Status</label><select id="inv-st"><option value="">All</option><option value="pending">Pending</option><option value="opened">Opened</option><option value="connected">Connected</option><option value="expired">Expired</option><option value="revoked">Revoked</option></select></div>
+        </div>
+        <div class="table-scroll"><table><thead><tr><th>Account</th><th>Invited by / note</th><th>Status</th><th>Created</th><th>Opened</th><th>Connected</th><th>Expires</th><th></th></tr></thead><tbody id="inv-body"></tbody></table></div>
+        <div class="pager"><span class="small muted" id="inv-count"></span><div class="row"><button class="ghost small" id="inv-prev">Previous</button><span class="small" id="inv-page"></span><button class="ghost small" id="inv-next">Next</button></div></div>
+        <p class="msg" id="inv-msg"></p>
       </div>
     </section>
   </div>
@@ -359,6 +391,7 @@ a{color:var(--accent)}
     document.querySelectorAll('[data-pane]').forEach(function (p) { p.hidden = p.getAttribute('data-pane') !== name; });
     if (name === 'videos') loadVideos();
     if (name === 'schedule') loadSchedule();
+    if (name === 'invites') loadInvites();
     if (name === 'texts' && !S.textsAcc && S.textsAcc !== '') loadTexts();
   }
   document.addEventListener('keydown', function (e) {
@@ -399,7 +432,7 @@ a{color:var(--accent)}
   };
   function steps(a) {
     return [
-      { l: 'Added', d: !!(a.created_at || a.stock || a.published || a.connected), t: a.created_at }, { l: 'Connected', d: a.connected, t: a.connected_at },
+      { l: 'Added', d: !!(a.created_at || a.stock || a.published || a.connected), t: a.created_at }, { l: 'Invited', d: !!a.invite, t: a.invite && a.invite.created_at }, { l: 'Connected', d: a.connected, t: a.connected_at },
       { l: 'Videos', d: a.stock > 0 || a.published > 0 }, { l: 'First post', d: !!a.first_post_at, t: a.first_post_at }, { l: 'Active', d: a.published_7d > 0 }
     ];
   }
@@ -432,7 +465,7 @@ a{color:var(--accent)}
     $('music-note').textContent = modeText + (mu.mode === 'off' ? '' : (total ? ' · ' + names.map(function (k) { return k + ' ' + mu.moods[k]; }).join(', ') + ' track(s)' : ' · no tracks yet: put audio files into the music folder (calm, energetic, mysterious)'));
   }
 
-  var TILES = [['', 'total', 'Accounts'], ['attention', 'attention', 'Need attention'], ['paused', 'paused', 'Paused'], ['not_connected', 'not_connected', 'Not connected'], ['low_stock', 'low_stock', 'Low stock'], ['no_stock', 'no_stock', 'No videos'], ['active', 'active', 'Posted in 7 days'], ['inactive', 'inactive', 'Idle (7 days)'], ['failed', 'failed', 'With failures']];
+  var TILES = [['', 'total', 'Accounts'], ['attention', 'attention', 'Need attention'], ['paused', 'paused', 'Paused'], ['invited', 'invited', 'Invited'], ['not_connected', 'not_connected', 'Not connected'], ['low_stock', 'low_stock', 'Low stock'], ['no_stock', 'no_stock', 'No videos'], ['active', 'active', 'Posted in 7 days'], ['inactive', 'inactive', 'Idle (7 days)'], ['failed', 'failed', 'With failures']];
   function setFilter(f) { S.q.filter = f; S.q.page = 1; S.sel = {}; reloadAccounts().catch(function (e) { setMsg('acc-msg', e.message, 'err'); }); }
 
   function renderAccounts() {
@@ -488,7 +521,7 @@ a{color:var(--accent)}
 
   function renderChips() {
     var c = $('chips'); clear(c); var sm = S.ov.summary;
-    [['', 'All'], ['attention', 'Needs attention'], ['paused', 'Paused'], ['not_connected', 'Not connected'], ['low_stock', 'Low stock'], ['no_stock', 'No videos'], ['active', 'Active'], ['inactive', 'Idle'], ['failed', 'Failures']].forEach(function (x) {
+    [['', 'All'], ['attention', 'Needs attention'], ['paused', 'Paused'], ['invited', 'Invited'], ['not_connected', 'Not connected'], ['low_stock', 'Low stock'], ['no_stock', 'No videos'], ['active', 'Active'], ['inactive', 'Idle'], ['failed', 'Failures']].forEach(function (x) {
       var n = x[0] === '' ? sm.total : sm[x[0]], b = h('button', { class: 'chip' + (S.q.filter === x[0] ? ' on' : ''), text: x[1] + ' ' + n });
       b.onclick = function () { setFilter(x[0]); }; c.appendChild(b);
     });
@@ -540,7 +573,7 @@ a{color:var(--accent)}
       h('div', null, h('label', { text: 'Link in bio' }), h('div', { class: 'row', style: 'flex-wrap:nowrap' }, link, copyB),
         h('label', { class: 'small', style: 'display:flex;gap:6px;align-items:center;margin:6px 0' }, set, 'Already set in the TikTok profile'),
         h('div', { class: 'row', style: 'align-items:center' }, grp, saveB)),
-      h('div', null, h('div', { class: 'row' }, conn, dis, texts), scheduleBox(a)))));
+      h('div', null, h('div', { class: 'row' }, conn, dis, texts), inviteBox(a), scheduleBox(a)))));
     return h('tr', { class: 'open' }, td);
   }
 
@@ -855,6 +888,99 @@ a{color:var(--accent)}
     if (window.confirm('Publish the next video right away for ' + n + ' selected account(s)? Accounts that are not connected or have no videos are skipped.')) bulkSchedule('Queueing…', { action: 'publishNow' }, function (r) { return 'Queued: ' + r.created + ' post(s)' + (r.skipped_count ? ', skipped: ' + r.skipped_count : '') + '.'; });
   };
   $('bulk-profile-go').onclick = function () { bulkSchedule('Saving…', { action: 'setOverride', profile: $('bulk-profile').value }, function (r) { return 'Schedule profile set for ' + r.updated + ' account(s).'; }); };
+
+  // ---------- invitations ----------
+  var INVST = { pending: ['Pending', 'b-wait'], opened: ['Opened', 'b-busy'], connected: ['Connected', 'b-ok'], expired: ['Expired', 'b-mute'], revoked: ['Revoked', 'b-mute'] };
+  S.inv = { q: '', status: '', page: 1, batch: [] };
+  function linkOf(token) { return base() + '/webhook/tiktok-invite?t=' + token; }
+  function msgFor(account, link, expires) {
+    return 'Hi! Please connect your TikTok account "' + account + '" to our publishing service: ' + link + '\nThe link works once and is valid until ' + fmt(expires) + '. It opens a short page, then TikTok asks you to approve access. You can remove access at any time in TikTok: Settings and privacy > Security and permissions > Apps and services.';
+  }
+  function showBatch(created, invalid) {
+    S.inv.batch = created;
+    $('inv-batch').value = created.map(function (c) { return c.account + '\t' + c.link; }).join('\n');
+    $('inv-batch-card').hidden = !created.length;
+    setMsg('inv-batch-msg', created.length + ' invitation' + (created.length === 1 ? '' : 's') + ' created' + (invalid ? ', ' + invalid + ' skipped (invalid name)' : '') + '.', 'ok');
+  }
+  function createInvites(accounts, note, days) {
+    return post_({ action: 'createInvites', accounts: accounts, note: note || '', days: days || 7 }).then(function (r) {
+      showBatch(r.created, r.invalid_count); showTab('invites'); return Promise.all([loadInvites(), refreshAll()]).then(function () { return r; });
+    });
+  }
+  $('iv-create').onclick = function () {
+    var names = $('iv-names').value.split(/[\s,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!names.length) { setMsg('iv-msg', 'Enter at least one account name.', 'err'); return; }
+    if (names.length > 200) { setMsg('iv-msg', 'Up to 200 invitations at once.', 'err'); return; }
+    var b = $('iv-create'); b.disabled = true; setMsg('iv-msg', 'Creating…', '', true);
+    createInvites(names, $('iv-note').value.trim(), parseInt($('iv-days').value, 10)).then(function () { setMsg('iv-msg', ''); $('iv-names').value = ''; })
+      .catch(function (e) { setMsg('iv-msg', e.message, 'err'); }).then(function () { b.disabled = false; });
+  };
+  $('bulk-invite').onclick = function () {
+    var names = Object.keys(S.sel); if (!names.length) return;
+    if (names.length > 200) { setMsg('bulk-msg', 'Up to 200 invitations at once.', 'err'); return; }
+    var note = window.prompt('Invited by / note for these ' + names.length + ' invitation(s) (optional):', '');
+    if (note === null) return;
+    setMsg('bulk-msg', 'Creating…', '', true);
+    createInvites(names, note.trim(), 7).then(function () { setMsg('bulk-msg', ''); }).catch(function (e) { setMsg('bulk-msg', e.message, 'err'); });
+  };
+  function downloadCsv() {
+    var rows = [['account', 'link', 'expires_at']].concat(S.inv.batch.map(function (c) { return [c.account, c.link, c.expires_at]; }));
+    var csv = rows.map(function (r) { return r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\r\n');
+    var a = h('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: 'invitations.csv' }); document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+  $('inv-copy-all').onclick = function () { copyText($('inv-batch').value, $('inv-copy-all')); };
+  $('inv-copy-msgs').onclick = function () { copyText(S.inv.batch.map(function (c) { return msgFor(c.account, c.link, c.expires_at); }).join('\n\n'), $('inv-copy-msgs')); };
+  $('inv-download').onclick = downloadCsv;
+
+  var invSearch = debounce(function () { S.inv.q = $('inv-q').value.trim(); S.inv.page = 1; loadInvites(); }, 300);
+  $('inv-q').oninput = invSearch;
+  $('inv-st').onchange = function () { S.inv.status = $('inv-st').value; S.inv.page = 1; loadInvites(); };
+  $('inv-prev').onclick = function () { S.inv.page = Math.max(1, S.inv.page - 1); loadInvites(); };
+  $('inv-next').onclick = function () { S.inv.page += 1; loadInvites(); };
+  function loadInvites() {
+    return get_('panel-api', { action: 'invites', q: S.inv.q, status: S.inv.status, page: S.inv.page, size: 50 }).then(function (d) {
+      var c = d.counts, order = ['pending', 'opened', 'connected', 'expired', 'revoked'];
+      $('inv-counts').textContent = order.filter(function (k) { return c[k]; }).map(function (k) { return INVST[k][0] + ' ' + c[k]; }).join(' · ');
+      var body = $('inv-body'); clear(body);
+      if (!d.invites.length) body.appendChild(h('tr', null, h('td', { colspan: '8', class: 'empty', text: 'No invitations yet. Create them in the “Add accounts” tab or with “Invite owners” on selected accounts.' })));
+      d.invites.forEach(function (i) {
+        var st = INVST[i.status] || [i.status, 'b-wait'], act = h('div', { class: 'row', style: 'gap:6px' });
+        if (i.link) {
+          var cp = h('button', { class: 'ghost small', text: 'Copy link' }); cp.onclick = function () { copyText(i.link, cp); }; act.appendChild(cp);
+          var cm = h('button', { class: 'ghost small', text: 'Copy message' }); cm.onclick = function () { copyText(msgFor(i.account, i.link, i.expires_at), cm); }; act.appendChild(cm);
+          var rv = h('button', { class: 'link', text: 'Revoke' }); rv.onclick = function () {
+            if (!window.confirm('Revoke the invitation for "' + i.account + '"? The link stops working.')) return;
+            rv.disabled = true; post_({ action: 'revokeInvite', token: i.token }).then(function () { return Promise.all([loadInvites(), refreshAll()]); }).catch(function (e) { setMsg('inv-msg', e.message, 'err'); rv.disabled = false; });
+          }; act.appendChild(rv);
+        } else {
+          var nw = h('button', { class: 'ghost small', text: i.status === 'connected' ? 'New link (reconnect)' : 'New link' });
+          nw.onclick = function () { nw.disabled = true; createInvites([i.account], i.note, 7).catch(function (e) { setMsg('inv-msg', e.message, 'err'); nw.disabled = false; }); }; act.appendChild(nw);
+        }
+        body.appendChild(h('tr', null, h('td', null, h('b', { text: i.account })), h('td', { class: 'small', text: i.note }), h('td', null, badge(st[0], st[1])),
+          h('td', { class: 'small', text: fmt(i.created_at) }), h('td', { class: 'small', text: i.opened_at ? fmt(i.opened_at) + (i.opens > 1 ? ' (' + i.opens + '×)' : '') : '' }),
+          h('td', { class: 'small', text: i.used_at ? fmt(i.used_at) : '' }), h('td', { class: 'small', text: (i.status === 'pending' || i.status === 'opened' || i.status === 'expired') ? fmt(i.expires_at) : '' }), h('td', null, act)));
+      });
+      $('inv-count').textContent = d.total + ' invitation' + (d.total === 1 ? '' : 's'); $('inv-page').textContent = 'Page ' + d.page + ' of ' + d.pages;
+      $('inv-prev').disabled = d.page <= 1; $('inv-next').disabled = d.page >= d.pages;
+    }).catch(function (e) { setMsg('inv-msg', e.message, 'err'); });
+  }
+  // блок приглашения в подробностях аккаунта
+  function inviteBox(a) {
+    var iv = a.invite, box = h('div', { style: 'margin-top:12px' }, h('label', { text: 'Owner invitation' }));
+    if (iv) {
+      var st = INVST[iv.status] || [iv.status, 'b-wait'];
+      box.appendChild(h('div', { class: 'small' }, badge(st[0], st[1]), ' ' + (iv.note ? iv.note + ' · ' : '') + 'created ' + fmt(iv.created_at)
+        + (iv.status === 'connected' && iv.used_at ? ' · connected ' + fmt(iv.used_at) : '') + ((iv.status === 'pending' || iv.status === 'opened') ? ' · valid until ' + fmt(iv.expires_at) : '')));
+    } else box.appendChild(h('div', { class: 'small muted', text: 'No invitation yet.' }));
+    var row = h('div', { class: 'row', style: 'margin-top:6px' });
+    if (iv && (iv.status === 'pending' || iv.status === 'opened')) {
+      var link = linkOf(iv.token), cp = h('button', { class: 'ghost small', text: 'Copy link' }); cp.onclick = function () { copyText(link, cp); }; row.appendChild(cp);
+      var cm = h('button', { class: 'ghost small', text: 'Copy message' }); cm.onclick = function () { copyText(msgFor(a.account, link, iv.expires_at), cm); }; row.appendChild(cm);
+    }
+    var mk = h('button', { class: 'ghost small', text: iv ? 'New link' : 'Invite owner' });
+    mk.onclick = function () { mk.disabled = true; createInvites([a.account], iv ? iv.note : '', 7).catch(function (e) { setMsg('acc-msg', e.message, 'err'); mk.disabled = false; }); };
+    row.appendChild(mk); box.appendChild(row); return box;
+  }
 
   // ---------- publish ----------
   function stopPoll() { if (S.poll) { clearInterval(S.poll); S.poll = null; } }
