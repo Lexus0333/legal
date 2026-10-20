@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https:; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
 <title>EXE Agency Publisher - Console</title>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--text:#1d2129;--muted:#667085;--line:#e4e7ec;--accent:#0b57d0;--ok:#067647;--okbg:#ecfdf3;--warn:#b54708;--warnbg:#fffaeb;--err:#b42318;--errbg:#fef3f2;--info:#175cd3;--infobg:#eff8ff;--row:#f9fafb}
@@ -101,6 +104,7 @@ a{color:var(--accent)}
   </section>
 
   <div id="app" hidden>
+    <div class="banner" id="alerts" hidden style="background:#fdecea;color:#8a1c14"></div>
     <div class="banner" id="banner" hidden>Test mode is on: videos are processed, but nothing is sent to TikTok.</div>
 
     <section class="card">
@@ -324,7 +328,7 @@ a{color:var(--accent)}
     el.appendChild(document.createTextNode(text || '')); el.className = 'msg' + (cls ? ' ' + cls : '');
   }
   function badge(text, cls, title) { var b = h('span', { class: 'badge ' + cls, text: text }); if (title) b.title = title; return b; }
-  function fmt(iso) { if (!iso) return ''; var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }
+  function fmt(iso) { if (!iso) return ''; var d = new Date(iso); if (isNaN(d)) return ''; try { return d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return d.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'; } }
   function ago(iso) {
     if (!iso) return 'never'; var s = (Date.now() - Date.parse(iso)) / 1000;
     if (s < 90) return 'just now'; if (s < 3600) return Math.round(s / 60) + ' min ago'; if (s < 86400) return Math.round(s / 3600) + ' h ago'; return Math.round(s / 86400) + ' d ago';
@@ -340,18 +344,18 @@ a{color:var(--accent)}
   // ---------- API ----------
   function check(r) {
     if (r.status === 403) throw new Error('The access key is wrong.');
+    if (r.status === 429) throw new Error('Too many wrong attempts. Try again in 15 minutes.');
     if (!r.ok) { return r.json().catch(function () { return {}; }).then(function (j) { throw new Error(j.error || 'The server returned an error (' + r.status + ').'); }); }
     return r.json();
   }
   function net() { throw new Error('Cannot reach the server. Check the server address and that the server is running.'); }
   function get_(ep, params) {
-    var q = '?key=' + encodeURIComponent($('key').value);
-    Object.keys(params || {}).forEach(function (k) { q += '&' + k + '=' + encodeURIComponent(params[k]); });
-    return fetch(base() + '/webhook/' + ep + q, { headers: { 'ngrok-skip-browser-warning': '1' } }).then(check, net);
+    var q = '?';
+    Object.keys(params || {}).forEach(function (k) { q += k + '=' + encodeURIComponent(params[k]) + '&'; });
+    return fetch(base() + '/webhook/' + ep + q, { headers: { 'Authorization': 'Bearer ' + $('key').value, 'ngrok-skip-browser-warning': '1' } }).then(check, net);
   }
   function post_(body) {
-    body.key = $('key').value;
-    return fetch(base() + '/webhook/panel-save', { method: 'POST', headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' }, body: JSON.stringify(body) }).then(check, net);
+    return fetch(base() + '/webhook/panel-save', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + $('key').value, 'ngrok-skip-browser-warning': '1' }, body: JSON.stringify(body) }).then(check, net);
   }
   function overviewParams(extra) {
     var q = S.q, p = { action: 'overview', q: q.q, filter: q.filter, group: q.group, sort: q.sort, dir: q.dir, page: q.page, size: q.size };
@@ -377,6 +381,9 @@ a{color:var(--accent)}
     return Promise.all([get_('panel-api', overviewParams()), get_('console-api')]).then(function (r) {
       S.ov = r[0]; S.queue = r[1]; renderAll();
     });
+  }
+  function refreshQueueOnly() {
+    return get_('console-api').then(function (q) { S.queue = q; renderTop(); renderQueue(); });
   }
   function reloadAccounts() {
     return get_('panel-api', overviewParams()).then(function (d) { S.ov = d; renderAccounts(); renderTop(); });
@@ -442,8 +449,11 @@ a{color:var(--accent)}
     return box;
   }
   function copyText(text, btn) {
-    var done = function () { var t = btn.textContent; btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = t; }, 1200); };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done); else done();
+    var t0 = btn.textContent, say = function (m) { btn.textContent = m; setTimeout(function () { btn.textContent = t0; }, 1500); };
+    var fallback = function () {
+      try { var ta = h('textarea', { style: 'position:fixed;opacity:0' }); ta.value = text; document.body.appendChild(ta); ta.select(); var ok = document.execCommand('copy'); ta.remove(); say(ok ? 'Copied' : 'Copy failed'); } catch (e) { say('Copy failed'); }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { say('Copied'); }, fallback); else fallback();
   }
   function queueStats() {
     var w = 0, bz = 0, lastErr = null;
@@ -456,6 +466,7 @@ a{color:var(--accent)}
   function renderTop() {
     var o = S.ov;
     $('banner').hidden = !o.dry_run;
+    var al = $('alerts'); al.textContent = (o.alerts || []).join(' '); al.hidden = !(o.alerts && o.alerts.length);
     $('cap-note').textContent = o.max_per_run ? 'Up to ' + o.max_per_run + ' video' + (o.max_per_run > 1 ? 's' : '') + ' per press.' : '';
     var q = queueStats();
     $('btn-run').disabled = !(o.summary.connected > 0 && q.waiting && !q.busy);
@@ -504,7 +515,7 @@ a{color:var(--accent)}
       var fl = h('td'); a.flags.slice(0, 2).forEach(function (f) { var d = FLAG[f]; if (d) fl.appendChild(badge(d[0], d[1], d[2])); fl.appendChild(document.createTextNode(' ')); });
       if (a.flags.length > 2) fl.appendChild(badge('+' + (a.flags.length - 2), 'b-mute', a.flags.slice(2).join(', ')));
       var tr = h('tr', { class: 'acc-row' + (S.open === a.account ? ' open' : ''), tabindex: '0' },
-        h('td', null, cb), h('td', null, h('b', { text: a.account })), h('td', { class: 'small', text: a.group }),
+        h('td', null, cb), h('td', null, h('b', { text: a.account }), a.nick ? h('div', { class: 'small muted', text: a.nick }) : ''), h('td', { class: 'small', text: a.group }),
         h('td', null, badge(a.connected ? 'Connected' : 'Not connected', a.connected ? 'b-ok' : 'b-fail')),
         h('td', { class: 'num', text: String(a.stock) }), h('td', { class: 'num', text: String(a.published_7d) }), h('td', { class: 'num', text: String(a.published) }),
         h('td', { class: 'small', text: a.last_post_at ? ago(a.last_post_at) : '' }), nextCell(a), fl);
@@ -528,7 +539,7 @@ a{color:var(--accent)}
   }
   function selCount() { return Object.keys(S.sel).length; }
   function renderBulk() {
-    var n = selCount(); $('bulk').hidden = n === 0; $('bulk-n').textContent = String(n); if (n) renderBulkProfiles();
+    var n = selCount(); $('bulk').hidden = n === 0; var onPage = S.ov.accounts.filter(function (a) { return S.sel[a.account]; }).length; $('bulk-n').textContent = n + (n !== onPage ? ' (' + (n - onPage) + ' on other pages)' : ''); if (n) renderBulkProfiles();
     var more = $('bulk-all'), tm = S.ov.total_matching;
     more.hidden = !(n > 0 && tm > n && tm <= 1000); more.textContent = 'Select all ' + tm + ' matching';
     var allb = document.querySelector('#a-head input[type=checkbox]');
@@ -542,8 +553,8 @@ a{color:var(--accent)}
   $('bulk-group-go').onclick = function () {
     var names = Object.keys(S.sel), g = $('bulk-group').value.trim();
     if (g === '' && !window.confirm('Remove the group from ' + names.length + ' account(s)?')) return;
-    setMsg('bulk-msg', 'Saving…', '', true);
-    post_({ action: 'setGroup', accounts: names, group: g }).then(function (r) { return reloadAccounts().then(function () { setMsg('bulk-msg', 'Group updated for ' + r.updated + ' account(s).', 'ok'); }); }).catch(function (e) { setMsg('bulk-msg', e.message, 'err'); });
+    setMsg('bulk-msg', 'Saving…', '', true); $('bulk-group-go').disabled = true;
+    post_({ action: 'setGroup', accounts: names, group: g }).then(function (r) { return reloadAccounts().then(function () { setMsg('bulk-msg', 'Group updated for ' + r.updated + ' account(s).', 'ok'); }); }).catch(function (e) { setMsg('bulk-msg', e.message, 'err'); }).then(function () { $('bulk-group-go').disabled = false; });
   };
   $('bulk-copy-go').onclick = function () {
     var names = Object.keys(S.sel), from = $('bulk-from').value.trim();
@@ -555,16 +566,22 @@ a{color:var(--accent)}
   function detailRow(a) {
     var link = h('input', { value: a.bio_link || '', placeholder: 'https://…', 'aria-label': 'Link in bio' });
     var set = h('input', { type: 'checkbox', style: 'width:auto' }); set.checked = !!a.bio_link_set;
+    var aig = h('input', { type: 'checkbox', style: 'width:auto' }); aig.checked = a.aigc !== false;
     var grp = h('input', { value: a.group || '', placeholder: 'group', 'aria-label': 'Group', style: 'width:140px' });
     var saveB = h('button', { class: 'ghost small', text: 'Save' });
     saveB.onclick = function () {
       saveB.disabled = true; setMsg('acc-msg', 'Saving…', '', true);
-      post_({ action: 'saveAccount', account: a.account, bio_link: link.value, bio_link_set: set.checked, group: grp.value }).then(function () { return reloadAccounts(); })
+      post_({ action: 'saveAccount', account: a.account, bio_link: link.value, bio_link_set: set.checked, aigc: aig.checked, group: grp.value }).then(function () { return reloadAccounts(); })
         .then(function () { setMsg('acc-msg', a.account + ' saved.', 'ok'); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); saveB.disabled = false; });
     };
     var copyB = h('button', { class: 'ghost small', text: 'Copy' }); copyB.onclick = function () { copyText(link.value, copyB); };
     var conn = h('button', { class: 'small', text: a.connected ? 'Reconnect to TikTok' : 'Connect to TikTok' }); conn.onclick = function () { startConnect(a.account); };
     var dis = h('button', { class: 'ghost small', text: 'Disconnect' }); dis.disabled = !a.connected; dis.onclick = function () { disconnect(a.account, dis); };
+    var rm = h('button', { class: 'ghost small', text: 'Remove' }); rm.disabled = a.connected; rm.title = a.connected ? 'Disconnect the account first' : 'Remove this account from the tool (its video folder is kept in /files/removed)';
+    rm.onclick = function () {
+      if (!window.confirm('Remove "' + a.account + '" from the tool? Its video folder is moved to the removed folder, not deleted.')) return;
+      rm.disabled = true; post_({ action: 'deleteAccount', account: a.account }).then(function () { S.open = null; return reloadAccounts(); }).then(function () { setMsg('acc-msg', a.account + ' removed.', 'ok'); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); rm.disabled = false; });
+    };
     var texts = h('button', { class: 'ghost small', text: 'Edit texts' }); texts.onclick = function () { $('t-acc').value = a.account; showTab('texts'); loadTexts(); };
     var dates = steps(a).filter(function (x) { return x.d && x.t; }).map(function (x) { return x.l + ': ' + fmt(x.t); }).join(' · ');
     var warn = h('div'); a.flags.forEach(function (f) { var d = FLAG[f]; if (d) warn.appendChild(h('div', { class: 'small', style: 'margin:3px 0' }, badge(d[0], d[1]), ' ' + d[2] + '.')); });
@@ -572,8 +589,9 @@ a{color:var(--accent)}
       h('div', null, h('h3', { text: 'Onboarding', style: 'margin:0 0 4px;font-size:14px' }), stepper(a), h('div', { class: 'small muted', text: dates }), warn),
       h('div', null, h('label', { text: 'Link in bio' }), h('div', { class: 'row', style: 'flex-wrap:nowrap' }, link, copyB),
         h('label', { class: 'small', style: 'display:flex;gap:6px;align-items:center;margin:6px 0' }, set, 'Already set in the TikTok profile'),
+        h('label', { class: 'small', style: 'display:flex;gap:6px;align-items:center;margin:6px 0' }, aig, 'Label videos as AI-generated (TikTok requirement for AI content)'),
         h('div', { class: 'row', style: 'align-items:center' }, grp, saveB)),
-      h('div', null, h('div', { class: 'row' }, conn, dis, texts), inviteBox(a), scheduleBox(a)))));
+      h('div', null, h('div', { class: 'row' }, conn, dis, texts, rm), inviteBox(a), scheduleBox(a)))));
     return h('tr', { class: 'open' }, td);
   }
 
@@ -585,13 +603,14 @@ a{color:var(--accent)}
     }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); btn.disabled = false; });
   }
   function startConnect(name) {
-    if (!/^[A-Za-z0-9_-]{1,40}$/.test(name)) { setMsg('acc-msg', 'Use 1-40 letters, digits, “_” or “-” for the account name.', 'err'); return; }
+    if (!/^[A-Za-z0-9_-]{1,40}$/.test(name)) { setMsg('acc-msg', 'Use 1-40 letters, digits, “_” or “-” for the account name (it is saved in lowercase).', 'err'); return; }
     setMsg('acc-msg', 'Redirecting to TikTok…', '', true);
-    window.location.href = base() + '/webhook/tiktok-start?key=' + encodeURIComponent($('key').value) + '&account=' + encodeURIComponent(name);
+    post_({ action: 'connectTicket', account: name.toLowerCase() }).then(function (r) { window.location.href = r.url; })
+      .catch(function (e) { setMsg('acc-msg', e.message, 'err'); });
   }
   $('btn-add').onclick = function () { startConnect($('acc-name').value.trim()); };
 
-  var searchNow = debounce(function () { S.q.q = $('a-q').value.trim(); S.q.page = 1; reloadAccounts().catch(function (e) { setMsg('acc-msg', e.message, 'err'); }); }, 300);
+  var searchNow = debounce(function () { S.q.q = $('a-q').value.trim(); S.q.page = 1; S.sel = {}; reloadAccounts().catch(function (e) { setMsg('acc-msg', e.message, 'err'); }); }, 300);
   $('a-q').oninput = searchNow;
   $('a-group').onchange = function () { S.q.group = $('a-group').value; S.q.page = 1; S.sel = {}; reloadAccounts(); };
   $('a-size').onchange = function () { S.q.size = parseInt($('a-size').value, 10); S.q.page = 1; reloadAccounts(); };
@@ -987,7 +1006,8 @@ a{color:var(--accent)}
   function follow() {
     stopPoll(); var started = Date.now(), seenBusy = false;
     S.poll = setInterval(function () {
-      refreshAll().then(function () {
+      if (document.hidden) return;
+      refreshQueueOnly().then(function () {
         var q = queueStats(), secs = (Date.now() - started) / 1000, err = q.lastErr && Date.parse(q.lastErr.processed_at) > started - 5000;
         if (q.busy) seenBusy = true;
         if (q.busy) setMsg('run-msg', 'Publishing a video… this usually takes a minute or two. You can keep this page open.', 'busy', true);
@@ -1001,7 +1021,7 @@ a{color:var(--accent)}
   }
   $('btn-run').onclick = function () {
     var b = $('btn-run'); b.disabled = true; setMsg('run-msg', 'Starting…', 'busy', true);
-    get_('console-api', { action: 'run' }).then(function () { follow(); }).catch(function (e) { setMsg('run-msg', e.message, 'err'); b.disabled = false; });
+    get_('console-api', { action: 'run' }).then(function (r) { if (r && r.started === false) { setMsg('run-msg', 'Not started: ' + (r.reason || 'unknown reason'), 'err'); b.disabled = false; return; } follow(); }).catch(function (e) { setMsg('run-msg', e.message, 'err'); b.disabled = false; });
   };
 
   if ($('server').value && $('key').value) connect(false);
