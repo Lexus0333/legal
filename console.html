@@ -116,6 +116,7 @@ a{color:var(--accent)}
 
     <nav class="tabs" role="tablist">
       <button class="tab on" data-tab="accounts">Accounts</button>
+      <button class="tab" data-tab="schedule">Schedule</button>
       <button class="tab" data-tab="queue">Queue</button>
       <button class="tab" data-tab="videos">Videos</button>
       <button class="tab" data-tab="texts">Texts</button>
@@ -138,6 +139,10 @@ a{color:var(--accent)}
             <div><label for="bulk-group">Set group (empty = remove group)</label><div class="row" style="flex-wrap:nowrap"><input id="bulk-group" placeholder="e.g. batch-1" style="min-width:150px"><button class="ghost small" id="bulk-group-go">Apply</button></div></div>
             <div><label for="bulk-from">Copy texts from account (empty = default lists)</label><div class="row" style="flex-wrap:nowrap"><input id="bulk-from" list="names-list" placeholder="account name" style="min-width:170px"><button class="ghost small" id="bulk-copy-go">Copy</button></div></div>
           </div>
+          <div class="row" style="margin-top:10px">
+            <button class="ghost small" id="bulk-pause">Pause posting</button><button class="ghost small" id="bulk-resume">Resume posting</button><button class="ghost small" id="bulk-now">Publish now</button>
+            <div class="row" style="flex-wrap:nowrap"><select id="bulk-profile" aria-label="Schedule profile"></select><button class="ghost small" id="bulk-profile-go">Set schedule profile</button></div>
+          </div>
           <p class="msg" id="bulk-msg"></p>
         </div>
         <div class="table-scroll"><table>
@@ -146,6 +151,53 @@ a{color:var(--accent)}
         </table></div>
         <div class="pager"><span class="small muted" id="a-count"></span><div class="row"><button class="ghost small" id="a-prev">Previous</button><span class="small" id="a-page"></span><button class="ghost small" id="a-next">Next</button></div></div>
         <p class="msg" id="acc-msg"></p>
+      </div>
+    </section>
+
+    <!-- SCHEDULE -->
+    <section data-pane="schedule" hidden>
+      <div class="card">
+        <div class="row between">
+          <div><h2>Scheduler <span id="sc-state"></span></h2><p class="muted small" style="margin:0" id="sc-sub"></p></div>
+          <div class="row"><button id="sc-toggle">Resume scheduler</button></div>
+        </div>
+        <div class="tiles" id="sc-tiles" style="margin-top:12px"></div>
+        <details><summary class="small">Scheduler settings</summary>
+          <div class="row" style="margin-top:10px">
+            <div><label for="sc-catchup">Catch up if late by less than (hours)</label><input id="sc-catchup" type="number" min="0" max="72" style="width:120px"></div>
+            <div><label for="sc-par">Parallel uploads</label><input id="sc-par" type="number" min="1" max="8" style="width:120px"></div>
+            <div><label for="sc-prep">Parallel preparations</label><input id="sc-prep" type="number" min="1" max="4" style="width:120px"></div>
+            <div><label for="sc-ahead">Prepare ahead (hours)</label><input id="sc-ahead" type="number" min="1" max="48" style="width:120px"></div>
+            <div><label for="sc-err">Pause an account after errors in a row</label><input id="sc-err" type="number" min="1" max="20" style="width:120px"></div>
+            <button id="sc-save-g" class="ghost">Save settings</button>
+          </div>
+        </details>
+        <p class="msg" id="sc-msg"></p>
+      </div>
+      <div class="card" id="sc-paused-card" hidden>
+        <h2>Paused accounts</h2>
+        <p class="muted small" style="margin:0 0 6px">Accounts are paused manually or automatically (login problems, TikTok limits, repeated errors). Their videos stay in the inbox.</p>
+        <div class="table-scroll"><table><tbody id="sc-paused"></tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="row between"><div><h2>Schedule profiles</h2><p class="muted small" style="margin:0">A profile says how many posts per day, in which time windows and how far apart. Assign profiles to groups below, or override one account in its row on the Accounts tab.</p></div><button id="pf-add" class="ghost">Add profile</button></div>
+        <div class="cols" id="pf-list" style="margin-top:12px"></div>
+        <div class="row" style="margin-top:14px"><div><label for="pf-default">Default profile (accounts whose group has no profile)</label><select id="pf-default"></select></div></div>
+        <h3 style="margin:14px 0 6px;font-size:14px">Profile per group</h3>
+        <div class="table-scroll"><table><tbody id="pf-groups"></tbody></table></div>
+        <div class="row" style="margin-top:12px"><button id="pf-save">Save profiles</button></div>
+        <p class="msg" id="pf-msg"></p>
+      </div>
+      <div class="card">
+        <h2>Timeline</h2>
+        <div class="row" style="margin:8px 0">
+          <div><label for="tl-acc">Account</label><input id="tl-acc" list="names-list" placeholder="All accounts" style="width:180px" autocomplete="off"></div>
+          <div><label for="tl-state">State</label><select id="tl-state"><option value="">All</option><option value="planned">Planned</option><option value="preparing">Preparing</option><option value="prepared">Ready</option><option value="publishing">Publishing</option></select></div>
+        </div>
+        <div class="table-scroll"><table><thead><tr><th>Time (your timezone)</th><th>Account</th><th>State</th><th></th></tr></thead><tbody id="tl-up"></tbody></table></div>
+        <p class="msg small muted" id="tl-note"></p>
+        <h3 style="margin:14px 0 6px;font-size:14px">Recent results</h3>
+        <div class="table-scroll"><table><thead><tr><th>Time</th><th>Account</th><th>Result</th></tr></thead><tbody id="tl-rec"></tbody></table></div>
       </div>
     </section>
 
@@ -280,7 +332,7 @@ a{color:var(--accent)}
     if (!quiet) setMsg('conn-msg', 'Connecting…', '', true);
     save('exe_server', base()); save('exe_key', $('key').value, true);
     return refreshAll().then(function () {
-      S.connected = true; $('conn-form').hidden = true; $('conn-bar').hidden = false; $('app').hidden = false;
+      loadSchedule(true); S.connected = true; $('conn-form').hidden = true; $('conn-bar').hidden = false; $('app').hidden = false;
       try { $('conn-host').textContent = new URL(base()).host; } catch (e) { $('conn-host').textContent = base(); }
       setMsg('conn-msg', '');
     }).catch(function (e) { setMsg('conn-msg', e.message, 'err'); });
@@ -306,6 +358,7 @@ a{color:var(--accent)}
     tabs.forEach(function (t) { t.className = 'tab' + (t.getAttribute('data-tab') === name ? ' on' : ''); });
     document.querySelectorAll('[data-pane]').forEach(function (p) { p.hidden = p.getAttribute('data-pane') !== name; });
     if (name === 'videos') loadVideos();
+    if (name === 'schedule') loadSchedule();
     if (name === 'texts' && !S.textsAcc && S.textsAcc !== '') loadTexts();
   }
   document.addEventListener('keydown', function (e) {
@@ -341,7 +394,8 @@ a{color:var(--accent)}
     refresh_soon: ['Login expires soon', 'b-busy', 'Reconnect the account before the TikTok login expires'],
     no_stock: ['No videos', 'b-busy', 'No videos in stock'],
     low_stock: ['Low stock', 'b-busy', 'Fewer than 5 videos left'],
-    failed: ['Failed videos', 'b-fail', 'Some videos failed. See the Videos tab.']
+    failed: ['Failed videos', 'b-fail', 'Some videos failed. See the Videos tab.'],
+    paused: ['Paused', 'b-busy', 'Posting is paused for this account']
   };
   function steps(a) {
     return [
@@ -378,7 +432,7 @@ a{color:var(--accent)}
     $('music-note').textContent = modeText + (mu.mode === 'off' ? '' : (total ? ' · ' + names.map(function (k) { return k + ' ' + mu.moods[k]; }).join(', ') + ' track(s)' : ' · no tracks yet: put audio files into the music folder (calm, energetic, mysterious)'));
   }
 
-  var TILES = [['', 'total', 'Accounts'], ['attention', 'attention', 'Need attention'], ['not_connected', 'not_connected', 'Not connected'], ['low_stock', 'low_stock', 'Low stock'], ['no_stock', 'no_stock', 'No videos'], ['active', 'active', 'Posted in 7 days'], ['inactive', 'inactive', 'Idle (7 days)'], ['failed', 'failed', 'With failures']];
+  var TILES = [['', 'total', 'Accounts'], ['attention', 'attention', 'Need attention'], ['paused', 'paused', 'Paused'], ['not_connected', 'not_connected', 'Not connected'], ['low_stock', 'low_stock', 'Low stock'], ['no_stock', 'no_stock', 'No videos'], ['active', 'active', 'Posted in 7 days'], ['inactive', 'inactive', 'Idle (7 days)'], ['failed', 'failed', 'With failures']];
   function setFilter(f) { S.q.filter = f; S.q.page = 1; S.sel = {}; reloadAccounts().catch(function (e) { setMsg('acc-msg', e.message, 'err'); }); }
 
   function renderAccounts() {
@@ -397,7 +451,7 @@ a{color:var(--accent)}
     g.value = gv;
 
     var head = $('a-head'); clear(head);
-    var cols = [['', null, ''], ['Account', 'name', ''], ['Group', 'group', ''], ['Connection', null, ''], ['Stock', 'stock', 'num'], ['7 days', 'published_7d', 'num'], ['Total', 'published', 'num'], ['Last post', 'last_post', ''], ['Attention', null, '']];
+    var cols = [['', null, ''], ['Account', 'name', ''], ['Group', 'group', ''], ['Connection', null, ''], ['Stock', 'stock', 'num'], ['7 days', 'published_7d', 'num'], ['Total', 'published', 'num'], ['Last post', 'last_post', ''], ['Next post', null, ''], ['Attention', null, '']];
     var allBox = h('input', { type: 'checkbox', 'aria-label': 'Select all on this page', style: 'width:auto' });
     allBox.checked = o.accounts.length > 0 && o.accounts.every(function (a) { return S.sel[a.account]; });
     allBox.onchange = function () { o.accounts.forEach(function (a) { if (allBox.checked) S.sel[a.account] = true; else delete S.sel[a.account]; }); renderAccounts(); };
@@ -410,7 +464,7 @@ a{color:var(--accent)}
     });
 
     var body = $('a-body'); clear(body);
-    if (!o.accounts.length) body.appendChild(h('tr', null, h('td', { colspan: '9', class: 'empty', text: sm.total ? 'No accounts match. Change the search or the filter.' : 'No accounts yet. Add them in the “Add accounts” tab.' })));
+    if (!o.accounts.length) body.appendChild(h('tr', null, h('td', { colspan: '10', class: 'empty', text: sm.total ? 'No accounts match. Change the search or the filter.' : 'No accounts yet. Add them in the “Add accounts” tab.' })));
     o.accounts.forEach(function (a) {
       var cb = h('input', { type: 'checkbox', 'aria-label': 'Select ' + a.account, style: 'width:auto' }); cb.checked = !!S.sel[a.account];
       cb.onclick = function (e) { e.stopPropagation(); if (cb.checked) S.sel[a.account] = true; else delete S.sel[a.account]; renderBulk(); };
@@ -420,7 +474,7 @@ a{color:var(--accent)}
         h('td', null, cb), h('td', null, h('b', { text: a.account })), h('td', { class: 'small', text: a.group }),
         h('td', null, badge(a.connected ? 'Connected' : 'Not connected', a.connected ? 'b-ok' : 'b-fail')),
         h('td', { class: 'num', text: String(a.stock) }), h('td', { class: 'num', text: String(a.published_7d) }), h('td', { class: 'num', text: String(a.published) }),
-        h('td', { class: 'small', text: a.last_post_at ? ago(a.last_post_at) : '' }), fl);
+        h('td', { class: 'small', text: a.last_post_at ? ago(a.last_post_at) : '' }), nextCell(a), fl);
       tr.onclick = function () { S.open = S.open === a.account ? null : a.account; renderAccounts(); };
       tr.onkeydown = function (e) { if (e.key === 'Enter') tr.onclick(); };
       body.appendChild(tr);
@@ -434,14 +488,14 @@ a{color:var(--accent)}
 
   function renderChips() {
     var c = $('chips'); clear(c); var sm = S.ov.summary;
-    [['', 'All'], ['attention', 'Needs attention'], ['not_connected', 'Not connected'], ['low_stock', 'Low stock'], ['no_stock', 'No videos'], ['active', 'Active'], ['inactive', 'Idle'], ['failed', 'Failures']].forEach(function (x) {
+    [['', 'All'], ['attention', 'Needs attention'], ['paused', 'Paused'], ['not_connected', 'Not connected'], ['low_stock', 'Low stock'], ['no_stock', 'No videos'], ['active', 'Active'], ['inactive', 'Idle'], ['failed', 'Failures']].forEach(function (x) {
       var n = x[0] === '' ? sm.total : sm[x[0]], b = h('button', { class: 'chip' + (S.q.filter === x[0] ? ' on' : ''), text: x[1] + ' ' + n });
       b.onclick = function () { setFilter(x[0]); }; c.appendChild(b);
     });
   }
   function selCount() { return Object.keys(S.sel).length; }
   function renderBulk() {
-    var n = selCount(); $('bulk').hidden = n === 0; $('bulk-n').textContent = String(n);
+    var n = selCount(); $('bulk').hidden = n === 0; $('bulk-n').textContent = String(n); if (n) renderBulkProfiles();
     var more = $('bulk-all'), tm = S.ov.total_matching;
     more.hidden = !(n > 0 && tm > n && tm <= 1000); more.textContent = 'Select all ' + tm + ' matching';
     var allb = document.querySelector('#a-head input[type=checkbox]');
@@ -481,12 +535,12 @@ a{color:var(--accent)}
     var texts = h('button', { class: 'ghost small', text: 'Edit texts' }); texts.onclick = function () { $('t-acc').value = a.account; showTab('texts'); loadTexts(); };
     var dates = steps(a).filter(function (x) { return x.d && x.t; }).map(function (x) { return x.l + ': ' + fmt(x.t); }).join(' · ');
     var warn = h('div'); a.flags.forEach(function (f) { var d = FLAG[f]; if (d) warn.appendChild(h('div', { class: 'small', style: 'margin:3px 0' }, badge(d[0], d[1]), ' ' + d[2] + '.')); });
-    var td = h('td', { colspan: '9' }, h('div', { class: 'detail' }, h('div', { class: 'detail-grid' },
+    var td = h('td', { colspan: '10' }, h('div', { class: 'detail' }, h('div', { class: 'detail-grid' },
       h('div', null, h('h3', { text: 'Onboarding', style: 'margin:0 0 4px;font-size:14px' }), stepper(a), h('div', { class: 'small muted', text: dates }), warn),
       h('div', null, h('label', { text: 'Link in bio' }), h('div', { class: 'row', style: 'flex-wrap:nowrap' }, link, copyB),
         h('label', { class: 'small', style: 'display:flex;gap:6px;align-items:center;margin:6px 0' }, set, 'Already set in the TikTok profile'),
         h('div', { class: 'row', style: 'align-items:center' }, grp, saveB)),
-      h('div', null, h('div', { class: 'row' }, conn, dis, texts)))));
+      h('div', null, h('div', { class: 'row' }, conn, dis, texts), scheduleBox(a)))));
     return h('tr', { class: 'open' }, td);
   }
 
@@ -609,6 +663,198 @@ a{color:var(--accent)}
     });
   }
   window.addEventListener('beforeunload', function (e) { if (dirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+  // ---------- schedule ----------
+  var DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var STATE_LABEL = { planned: ['Planned', 'b-wait'], preparing: ['Preparing', 'b-busy'], prepared: ['Ready', 'b-ok'], publishing: ['Publishing', 'b-busy'], done: ['Done', 'b-ok'], skipped: ['Skipped', 'b-mute'], failed: ['Failed', 'b-fail'] };
+  var TZS = ['UTC', 'Europe/Warsaw', 'Europe/Berlin', 'Europe/London', 'Europe/Kyiv', 'Europe/Moscow', 'Europe/Istanbul', 'Asia/Dubai', 'Asia/Almaty', 'Asia/Tbilisi', 'Asia/Yerevan', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'America/Sao_Paulo'];
+  S.sched = null; S.profiles = null; S.groupMap = null; S.defProfile = null;
+  function shortTime(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+  function nextCell(a) {
+    var td = h('td', { class: 'small' });
+    if (a.paused) { td.appendChild(badge('Paused', 'b-busy', a.paused_reason || 'Posting is paused')); return td; }
+    if (a.next_post_at) { td.textContent = shortTime(a.next_post_at); td.title = fmt(a.next_post_at); }
+    return td;
+  }
+  function loadSchedule(quiet) {
+    return get_('panel-api', { action: 'schedule' }).then(function (d) {
+      S.sched = d; S.profiles = JSON.parse(JSON.stringify(d.config.profiles)); S.groupMap = JSON.parse(JSON.stringify(d.config.group_profile)); S.defProfile = d.config.default_profile;
+      renderSchedule(); if (S.ov) renderBulkProfiles();
+    }).catch(function (e) { if (!quiet) setMsg('sc-msg', e.message, 'err'); });
+  }
+  function profileNames() { return S.profiles ? Object.keys(S.profiles) : []; }
+  function renderSchedule() {
+    var c = S.sched.config, G = c.global, sm = S.sched.summary, counts = sm.counts || {};
+    var st = $('sc-state'); clear(st); st.appendChild(badge(G.paused ? 'Paused' : 'Running', G.paused ? 'b-busy' : 'b-ok'));
+    var age = sm.at ? Math.round((Date.now() - sm.at) / 60000) : null;
+    $('sc-sub').textContent = G.paused ? 'Nothing is planned or published automatically while the scheduler is paused.' : 'Posts are planned for the next 24-36 hours and published at their time.';
+    if (age !== null && age >= 3) $('sc-sub').textContent += ' Warning: the scheduler has not checked in for ' + age + ' min. Make sure the computer, Docker and n8n are running.';
+    if (age === null) $('sc-sub').textContent += ' Waiting for the first scheduler check…';
+    $('sc-toggle').textContent = G.paused ? 'Resume scheduler' : 'Pause scheduler';
+    var tiles = $('sc-tiles'); clear(tiles);
+    [['planned', 'Planned'], ['preparing', 'Preparing'], ['prepared', 'Ready to post'], ['publishing', 'Publishing'], ['done', 'Done (recent)'], ['skipped', 'Skipped'], ['failed', 'Failed']].forEach(function (x) {
+      tiles.appendChild(h('div', { class: 'tile', style: 'cursor:default' }, h('b', { text: String(counts[x[0]] || 0) }), h('span', { text: x[1] })));
+    });
+    $('sc-catchup').value = G.catchup_hours; $('sc-par').value = G.max_parallel; $('sc-prep').value = G.max_prepare; $('sc-ahead').value = G.prepare_ahead_hours; $('sc-err').value = G.pause_after_errors;
+    // приостановленные аккаунты
+    var pc = $('sc-paused-card'), pb = $('sc-paused'); clear(pb); pc.hidden = !sm.paused.length;
+    sm.paused.forEach(function (p) {
+      var b = h('button', { class: 'ghost small', text: 'Resume' });
+      b.onclick = function () { b.disabled = true; post_({ action: 'pauseAccounts', accounts: [p.account], paused: false }).then(function () { return Promise.all([loadSchedule(), refreshAll()]); }).catch(function (e) { setMsg('sc-msg', e.message, 'err'); b.disabled = false; }); };
+      pb.appendChild(h('tr', null, h('td', null, h('b', { text: p.account })), h('td', { class: 'small', text: p.reason || '' }), h('td', { class: 'small muted', text: (p.at ? 'since ' + fmt(p.at) : '') + (p.until ? ' · until ' + fmt(p.until) : '') }), h('td', null, b)));
+    });
+    renderProfiles(); renderTimeline();
+  }
+  $('sc-toggle').onclick = function () {
+    var paused = S.sched.config.global.paused;
+    if (paused && !window.confirm('Resume the scheduler? Connected accounts will get posts planned and published automatically according to their profiles.')) return;
+    $('sc-toggle').disabled = true; setMsg('sc-msg', 'Saving…', '', true);
+    post_({ action: paused ? 'resumeAll' : 'pauseAll' }).then(function () { return loadSchedule(); }).then(function () { setMsg('sc-msg', paused ? 'Scheduler resumed.' : 'Scheduler paused.', 'ok'); }).catch(function (e) { setMsg('sc-msg', e.message, 'err'); }).then(function () { $('sc-toggle').disabled = false; });
+  };
+  $('sc-save-g').onclick = function () {
+    setMsg('sc-msg', 'Saving…', '', true);
+    post_({ action: 'saveSchedule', global: { catchup_hours: $('sc-catchup').value, max_parallel: $('sc-par').value, max_prepare: $('sc-prep').value, prepare_ahead_hours: $('sc-ahead').value, pause_after_errors: $('sc-err').value } })
+      .then(function () { return loadSchedule(); }).then(function () { setMsg('sc-msg', 'Settings saved.', 'ok'); }).catch(function (e) { setMsg('sc-msg', e.message, 'err'); });
+  };
+
+  // профили
+  var pfInputs = {};
+  function numInput(v, min, max, w) { return h('input', { type: 'number', min: String(min), max: String(max), value: v == null ? '' : String(v), style: 'width:' + (w || 90) + 'px' }); }
+  function renderProfiles() {
+    var list = $('pf-list'); clear(list); pfInputs = {};
+    profileNames().forEach(function (name) {
+      var p = S.profiles[name], f = pfInputs[name] = {};
+      f.enabled = h('input', { type: 'checkbox', style: 'width:auto' }); f.enabled.checked = p.enabled !== false;
+      f.ppd = numInput(p.posts_per_day, 0, 50); f.gap = numInput(p.min_gap_min, 0, 1440, 110);
+      f.win = h('input', { value: fmtWin(p.windows), placeholder: '09:00-13:00, 16:00-22:30' });
+      f.tz = h('input', { value: p.tz, list: 'tz-list', placeholder: 'Europe/Warsaw' });
+      f.days = DOW.map(function (d, i) { var cb = h('input', { type: 'checkbox', style: 'width:auto' }); cb.checked = (p.days || []).indexOf(i + 1) >= 0; return cb; });
+      f.rs = numInput(p.ramp ? p.ramp.start : '', 1, 50, 70); f.re = numInput(p.ramp ? p.ramp.every_days : '', 1, 60, 70);
+      var del = h('button', { class: 'ghost small', text: 'Delete' }); del.onclick = function () {
+        if (profileNames().length <= 1) { setMsg('pf-msg', 'Keep at least one profile.', 'err'); return; }
+        if (!window.confirm('Delete the profile "' + name + '"? Groups and accounts that use it will fall back to the default profile.')) return;
+        collectProfiles(); delete S.profiles[name]; if (S.defProfile === name) S.defProfile = profileNames()[0]; renderProfiles();
+      };
+      var daysBox = h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' }); DOW.forEach(function (d, i) { daysBox.appendChild(h('label', { class: 'small', style: 'display:flex;gap:3px;align-items:center;margin:0' }, f.days[i], d)); });
+      list.appendChild(h('div', { class: 'card', style: 'margin:0' },
+        h('div', { class: 'row between', style: 'margin-bottom:8px' }, h('h2', { text: name }), h('label', { class: 'small', style: 'display:flex;gap:6px;align-items:center;margin:0' }, f.enabled, 'Enabled')),
+        h('div', { class: 'row' }, h('div', null, h('label', { text: 'Posts per day' }), f.ppd), h('div', null, h('label', { text: 'Min. gap (minutes)' }), f.gap)),
+        h('div', { style: 'margin-top:8px' }, h('label', { text: 'Time windows (HH:MM-HH:MM, separated by commas)' }), f.win),
+        h('div', { style: 'margin-top:8px' }, h('label', { text: 'Time zone' }), f.tz),
+        h('div', { style: 'margin-top:8px' }, h('label', { text: 'Days of the week' }), daysBox),
+        h('div', { class: 'row', style: 'margin-top:8px' }, h('div', null, h('label', { text: 'Warm-up: start posts/day' }), f.rs), h('div', null, h('label', { text: '+1 every N days' }), f.re)),
+        h('p', { class: 'small muted', style: 'margin:4px 0 0', text: 'Warm-up (optional): a new account starts with the given number of posts and adds one every N days, up to the number above. Leave empty for no warm-up.' }),
+        h('div', { style: 'margin-top:10px' }, del)));
+    });
+    var dl = $('tz-list'); if (!dl) { dl = h('datalist', { id: 'tz-list' }); document.body.appendChild(dl); TZS.forEach(function (z) { dl.appendChild(h('option', { value: z })); }); }
+    var def = $('pf-default'); clear(def); profileNames().forEach(function (n) { def.appendChild(h('option', { value: n, text: n })); }); def.value = S.defProfile;
+    var gb = $('pf-groups'); clear(gb);
+    var groups = Object.keys(Object.assign({}, S.groupMap, (S.ov && S.ov.groups) || {}, (S.sched && S.sched.groups || []).reduce(function (o, g) { o[g] = 1; return o; }, {}))).sort();
+    if (!groups.length) gb.appendChild(h('tr', null, h('td', { class: 'empty', text: 'No groups yet. Groups are created in the Accounts tab (bulk action “Set group”) or when adding accounts.' })));
+    groups.forEach(function (g) {
+      var sel = h('select'); sel.appendChild(h('option', { value: '', text: 'Default profile' })); profileNames().forEach(function (n) { sel.appendChild(h('option', { value: n, text: n })); });
+      sel.value = S.groupMap[g] && S.profiles[S.groupMap[g]] ? S.groupMap[g] : ''; sel.onchange = function () { if (sel.value) S.groupMap[g] = sel.value; else delete S.groupMap[g]; };
+      gb.appendChild(h('tr', null, h('td', null, h('b', { text: g })), h('td', null, sel)));
+    });
+  }
+  function collectProfiles() {
+    profileNames().forEach(function (name) {
+      var f = pfInputs[name], p = S.profiles[name]; if (!f) return;
+      p.enabled = f.enabled.checked; p.posts_per_day = Number(f.ppd.value); p.min_gap_min = Number(f.gap.value);
+      p.windows = parseWin(f.win.value); p.tz = f.tz.value.trim();
+      p.days = f.days.map(function (cb, i) { return cb.checked ? i + 1 : 0; }).filter(Boolean);
+      p.ramp = f.rs.value ? { start: Number(f.rs.value), every_days: Number(f.re.value) || 1 } : null;
+    });
+    S.defProfile = $('pf-default').value || S.defProfile;
+  }
+  function parseWin(s) { return s.split(/[,;]+/).map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) { var m = /^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/.exec(x); return m ? [m[1], m[2]] : ['x', 'x']; }); }
+  function fmtWin(w) { return (w || []).map(function (x) { return x[0] + '-' + x[1]; }).join(', '); }
+  $('pf-add').onclick = function () {
+    collectProfiles(); var i = 1; while (S.profiles['profile-' + i]) i++;
+    var name = window.prompt('Name for the new profile (letters, digits, spaces, "_" or "-"):', 'profile-' + i);
+    if (!name) return; name = name.trim();
+    if (!/^[A-Za-z0-9_ -]{1,40}$/.test(name) || S.profiles[name]) { setMsg('pf-msg', 'Use a new name with 1-40 letters, digits, spaces, "_" or "-".', 'err'); return; }
+    S.profiles[name] = { posts_per_day: 2, windows: [['10:00', '22:00']], min_gap_min: 120, days: [1, 2, 3, 4, 5, 6, 7], tz: (S.profiles[S.defProfile] || {}).tz || 'UTC', ramp: null, enabled: true };
+    renderProfiles();
+  };
+  $('pf-save').onclick = function () {
+    collectProfiles();
+    var badWin = profileNames().filter(function (n) { return S.profiles[n].windows.some(function (w) { return w[0] === 'x'; }); });
+    if (badWin.length) { setMsg('pf-msg', 'Check the time windows of: ' + badWin.join(', ') + '. Use the format 09:00-13:00, 16:00-22:30.', 'err'); return; }
+    setMsg('pf-msg', 'Saving…', '', true);
+    post_({ action: 'saveSchedule', profiles: S.profiles, default_profile: S.defProfile, group_profile: S.groupMap })
+      .then(function () { return loadSchedule(); }).then(function () { setMsg('pf-msg', 'Profiles saved. The new rules apply to slots planned from now on.', 'ok'); })
+      .catch(function (e) { setMsg('pf-msg', e.message, 'err'); });
+  };
+
+  // лента слотов
+  function renderTimeline() {
+    var sm = S.sched.summary, fa = $('tl-acc').value.trim(), fs_ = $('tl-state').value;
+    var up = (sm.upcoming || []).filter(function (s) { return (!fa || s.account === fa) && (!fs_ || s.state === fs_); });
+    var tb = $('tl-up'); clear(tb);
+    if (!up.length) tb.appendChild(h('tr', null, h('td', { colspan: '4', class: 'empty', text: S.sched.config.global.paused ? 'Nothing planned: the scheduler is paused.' : 'No planned posts yet. They appear after the next scheduler check.' })));
+    up.slice(0, 100).forEach(function (s) {
+      var L = STATE_LABEL[s.state] || [s.state, 'b-wait'], act = h('td');
+      if (s.state === 'planned' || s.state === 'prepared') {
+        var b = h('button', { class: 'link', text: 'Skip' }); b.onclick = function () {
+          if (!window.confirm('Skip this post for ' + s.account + '? The video stays in the inbox.')) return;
+          b.disabled = true; post_({ action: 'skipSlot', id: s.id }).then(function () { return loadSchedule(); }).catch(function (e) { setMsg('tl-note', e.message, 'err'); b.disabled = false; });
+        }; act.appendChild(b);
+      }
+      var when = h('td', { class: 'small', text: shortTime(s.at) }); if (s.manual) when.appendChild(badge('manual', 'b-mute'));
+      tb.appendChild(h('tr', null, when, h('td', { text: s.account }), h('td', null, badge(L[0], L[1])), act));
+    });
+    $('tl-note').textContent = up.length > 100 ? 'Showing the first 100 of ' + up.length + ' planned posts. Use the filters to narrow the list.' : '';
+    var rb = $('tl-rec'); clear(rb);
+    var rec = (sm.recent || []).filter(function (s) { return !fa || s.account === fa; });
+    if (!rec.length) rb.appendChild(h('tr', null, h('td', { colspan: '3', class: 'empty', text: 'No results yet.' })));
+    rec.slice(0, 50).forEach(function (s) {
+      var L = STATE_LABEL[s.state] || [s.state, 'b-wait'];
+      rb.appendChild(h('tr', null, h('td', { class: 'small', text: shortTime(s.at) }), h('td', { text: s.account }), h('td', { class: 'small' }, badge(L[0], L[1]), ' ' + (s.reason || (s.result === 'DryRun' ? 'Test run: nothing was sent to TikTok.' : '')))));
+    });
+  }
+  $('tl-acc').onchange = $('tl-state').onchange = function () { if (S.sched) renderTimeline(); };
+
+  // расписание аккаунта (в подробностях строки)
+  function scheduleBox(a) {
+    var names = S.sched ? Object.keys(S.sched.config.profiles) : [], ov = a.override || {};
+    var sel = h('select', { 'aria-label': 'Schedule profile' }); sel.appendChild(h('option', { value: '', text: 'Profile: from group / default' }));
+    names.forEach(function (n) { sel.appendChild(h('option', { value: n, text: n })); }); sel.value = ov.profile || '';
+    var ppd = h('input', { type: 'number', min: '0', max: '50', placeholder: 'posts/day', value: ov.posts_per_day != null ? String(ov.posts_per_day) : '', style: 'width:110px', 'aria-label': 'Posts per day override' });
+    var saveB = h('button', { class: 'ghost small', text: 'Save schedule' });
+    saveB.onclick = function () {
+      saveB.disabled = true; setMsg('acc-msg', 'Saving…', '', true);
+      post_({ action: 'setOverride', accounts: [a.account], profile: sel.value, posts_per_day: ppd.value === '' ? null : Number(ppd.value) })
+        .then(function () { return Promise.all([loadSchedule(true), reloadAccounts()]); }).then(function () { setMsg('acc-msg', a.account + ': schedule saved.', 'ok'); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); saveB.disabled = false; });
+    };
+    var pauseB = h('button', { class: 'ghost small', text: a.paused ? 'Resume posting' : 'Pause posting' });
+    pauseB.onclick = function () {
+      pauseB.disabled = true; post_({ action: 'pauseAccounts', accounts: [a.account], paused: !a.paused })
+        .then(function () { return Promise.all([loadSchedule(true), reloadAccounts()]); }).then(function () { setMsg('acc-msg', a.account + (a.paused ? ': posting resumed.' : ': posting paused.'), 'ok'); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); pauseB.disabled = false; });
+    };
+    var nowB = h('button', { class: 'ghost small', text: 'Publish now' }); nowB.disabled = !a.connected || a.stock === 0;
+    nowB.onclick = function () {
+      if (!window.confirm('Publish the next video of "' + a.account + '" to TikTok right away?')) return;
+      nowB.disabled = true; post_({ action: 'publishNow', accounts: [a.account] }).then(function (r) { setMsg('acc-msg', r.created ? a.account + ': a post was queued and will start within a minute.' : 'Nothing queued (a manual post is already waiting, or the account is not connected).', r.created ? 'ok' : 'busy'); return loadSchedule(true); }).catch(function (e) { setMsg('acc-msg', e.message, 'err'); }).then(function () { nowB.disabled = false; });
+    };
+    return h('div', { style: 'margin-top:12px' }, h('label', { text: 'Schedule' }), h('div', { class: 'row', style: 'flex-wrap:nowrap' }, sel, ppd), h('div', { class: 'row', style: 'margin-top:6px' }, saveB, pauseB, nowB));
+  }
+  function renderBulkProfiles() {
+    var s = $('bulk-profile'); if (!s) return; var cur = s.value; clear(s);
+    s.appendChild(h('option', { value: '', text: 'Profile: from group / default' })); profileNames().forEach(function (n) { s.appendChild(h('option', { value: n, text: n })); }); s.value = cur;
+  }
+  function bulkSchedule(label, body, okText) {
+    var names = Object.keys(S.sel); if (!names.length) return;
+    setMsg('bulk-msg', label, '', true); body.accounts = names;
+    post_(body).then(function (r) { return Promise.all([loadSchedule(true), reloadAccounts()]).then(function () { setMsg('bulk-msg', okText(r), 'ok'); }); }).catch(function (e) { setMsg('bulk-msg', e.message, 'err'); });
+  }
+  $('bulk-pause').onclick = function () { if (window.confirm('Pause posting for ' + selCount() + ' account(s)?')) bulkSchedule('Pausing…', { action: 'pauseAccounts', paused: true }, function (r) { return 'Paused: ' + r.updated + ' account(s).'; }); };
+  $('bulk-resume').onclick = function () { bulkSchedule('Resuming…', { action: 'pauseAccounts', paused: false }, function (r) { return 'Resumed: ' + r.updated + ' account(s).'; }); };
+  $('bulk-now').onclick = function () {
+    var n = selCount(); if (n > 100) { setMsg('bulk-msg', 'Publish now works for up to 100 accounts at once.', 'err'); return; }
+    if (window.confirm('Publish the next video right away for ' + n + ' selected account(s)? Accounts that are not connected or have no videos are skipped.')) bulkSchedule('Queueing…', { action: 'publishNow' }, function (r) { return 'Queued: ' + r.created + ' post(s)' + (r.skipped_count ? ', skipped: ' + r.skipped_count : '') + '.'; });
+  };
+  $('bulk-profile-go').onclick = function () { bulkSchedule('Saving…', { action: 'setOverride', profile: $('bulk-profile').value }, function (r) { return 'Schedule profile set for ' + r.updated + ' account(s).'; }); };
 
   // ---------- publish ----------
   function stopPoll() { if (S.poll) { clearInterval(S.poll); S.poll = null; } }
