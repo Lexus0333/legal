@@ -39,6 +39,7 @@ th{color:var(--muted);font-weight:500;font-size:13px}
 .b-fail{background:var(--errbg);color:var(--err)}
 .msg{margin:10px 0 0;font-size:14px;min-height:1.2em}
 .msg.err{color:var(--err)}.msg.ok{color:var(--ok)}.msg.busy{color:var(--warn)}
+.banner{background:var(--warnbg);color:var(--warn);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:14px}
 .muted{color:var(--muted)}
 .small{font-size:13px}
 .empty{color:var(--muted);padding:10px 0}
@@ -47,12 +48,15 @@ th{color:var(--muted);font-weight:500;font-size:13px}
 footer{color:var(--muted);font-size:13px;margin-top:24px}
 a{color:var(--accent)}
 details summary{cursor:pointer;color:var(--accent);font-size:14px}
+code{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:13px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>EXE Agency Publisher</h1>
   <p class="sub">Publish our own videos to our own TikTok accounts in three steps. Internal tool, not offered to the public.</p>
+
+  <div class="banner" id="banner" hidden>Test mode is on: videos are processed, but nothing is sent to TikTok.</div>
 
   <section class="card" id="card1">
     <div class="head"><div class="num" id="num1">1</div>
@@ -76,7 +80,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:14px}
       <tbody id="accounts"><tr><td colspan="3" class="empty">Complete step 1 to see your accounts.</td></tr></tbody>
     </table></div>
     <div class="row" style="margin-top:14px">
-      <div class="grow"><label for="acc-name">Account name (a label you choose; it is used in the queue)</label><input id="acc-name" value="account1" autocomplete="off"></div>
+      <div class="grow"><label for="acc-name">Account name (a label you choose; it is also the name of the video folder)</label><input id="acc-name" value="account1" autocomplete="off"></div>
       <button id="btn-add">Connect TikTok account</button>
     </div>
     <p class="msg" id="acc-msg"></p>
@@ -85,9 +89,9 @@ details summary{cursor:pointer;color:var(--accent);font-size:14px}
   <section class="card locked" id="card3">
     <div class="head"><div class="num" id="num3">3</div>
       <div><h2>Publish videos</h2>
-      <p class="hint">Videos are taken from the publishing queue (a Google Sheet). Rows marked “Waiting to publish” are posted to TikTok, one at a time.</p></div></div>
+      <p class="hint">Put video files into the <code>inbox</code> folder (one subfolder per account, for example <code>inbox/account1</code>) and press Publish. Every video is posted in turn, with a short random pause between posts.</p></div></div>
     <div class="row" style="margin-bottom:8px">
-      <button id="btn-run" disabled>Publish next video</button>
+      <button id="btn-run" disabled>Publish all videos</button>
       <button id="btn-refresh" class="ghost">Refresh</button>
     </div>
     <p class="msg" id="run-msg"></p>
@@ -96,7 +100,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:14px}
       <tbody id="queue"><tr><td colspan="4" class="empty">Complete step 1 to see the queue.</td></tr></tbody>
     </table></div>
     <details style="margin-top:12px"><summary>How does publishing work?</summary>
-      <p class="small muted">Each video is downloaded from Google Drive, a short hook text is added to the first seconds, and the file is uploaded through the TikTok Content Posting API (Direct Post) to the connected account. Until the app is approved by TikTok, posts are private and visible only to the account owner. AI-generated videos are labelled as AI-generated.</p>
+      <p class="small muted">For each video the tool takes a few frames and writes a short on-screen hook and a caption with hashtags (with an AI assistant when it is configured; otherwise from an optional text file with the same name as the video, or from the file name). The hook is added to the first seconds of the video and the file is uploaded through the TikTok Content Posting API (Direct Post) to the connected account. Published videos move to the <code>done</code> folder, failed ones to <code>failed</code>. Until the app is approved by TikTok, posts are private and visible only to the account owner. AI-generated videos are labelled as AI-generated.</p>
     </details>
   </section>
 
@@ -136,22 +140,26 @@ details summary{cursor:pointer;color:var(--accent);font-size:14px}
 
   var STATUS = {
     ready: ['Waiting to publish', 'b-wait'], processing: ['Publishing…', 'b-busy'], posted: ['Published', 'b-ok'],
-    check: ['Needs a manual check', 'b-busy'], error: ['Failed', 'b-fail']
+    dryrun: ['Test run', 'b-wait'], check: ['Needs a manual check', 'b-busy'], error: ['Failed', 'b-fail']
   };
   function statusOf(s) { return STATUS[String(s || '').toLowerCase()] || [s || '-', 'b-wait']; }
   function resultOf(r) {
-    var s = String(r.status || '').toLowerCase();
-    if (s === 'posted') return 'Posted to TikTok' + (String(r.privacy).indexOf('SELF_ONLY') === 0 ? ' as a private video (only you can see it)' : '');
-    if (s === 'error') return friendlyError(r.error);
-    if (s === 'check') return 'TikTok has not confirmed the post yet. Check the account before publishing again.';
-    if (s === 'processing') return 'In progress…';
-    return '';
+    var s = String(r.status || '').toLowerCase(), text = '';
+    if (s === 'ready') return 'Waiting in the inbox folder.';
+    if (s === 'posted') text = 'Posted to TikTok' + (String(r.privacy).indexOf('SELF_ONLY') === 0 ? ' as a private video (only you can see it).' : '.');
+    else if (s === 'dryrun') text = 'Test run: everything was prepared, nothing was sent to TikTok.';
+    else if (s === 'error') return friendlyError(r.error);
+    else if (s === 'check') text = 'TikTok has not confirmed the post yet. Check the account before publishing again.';
+    else if (s === 'processing') return 'In progress…';
+    if (r.hook) text += ' Hook: “' + r.hook + '”.';
+    if (r.caption) text += ' Caption: ' + r.caption;
+    return text;
   }
   function friendlyError(e) {
     e = String(e || '');
-    if (/not connected/i.test(e)) return 'This account is not connected. Complete step 2.';
-    if (/private accounts/i.test(e)) return 'TikTok allows only private accounts until the app is approved. Make the TikTok account private.';
-    if (/could not be found/i.test(e)) return 'The video file was not found in Google Drive. Check the link and sharing settings.';
+    if (/not connected/i.test(e)) return 'This account is not connected. Complete step 2. The video stays in the inbox.';
+    if (/private accounts|unaudited/i.test(e)) return 'TikTok allows only private accounts until the app is approved. Make the TikTok account private. The video stays in the inbox.';
+    if (/interrupted/i.test(e)) return 'The run was interrupted. The video was not published.';
     return e ? 'Something went wrong: ' + e.slice(0, 140) : 'Something went wrong.';
   }
 
@@ -169,6 +177,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:14px}
   }
 
   function render(d) {
+    $('banner').hidden = !d.dry_run;
     var ab = $('accounts');
     if (!d.accounts.length) emptyRow(ab, 3, 'No TikTok accounts connected yet. Use the form below.');
     else {
@@ -183,17 +192,18 @@ details summary{cursor:pointer;color:var(--accent);font-size:14px}
         td.appendChild(b); tr.appendChild(td); ab.appendChild(tr);
       });
     }
-    var qb = $('queue'), waiting = 0, busy = 0;
-    if (!d.queue.length) emptyRow(qb, 4, 'The queue is empty. Add a row with status “Ready” to the Google Sheet to publish a video.');
+    var qb = $('queue'), waiting = 0, busy = 0, lastErr = null;
+    if (!d.queue.length) emptyRow(qb, 4, 'The queue is empty. Put video files into the inbox folder to publish them.');
     else {
       qb.textContent = '';
       d.queue.forEach(function (r) {
         var st = String(r.status || '').toLowerCase();
         if (st === 'ready') waiting++;
         if (st === 'processing') busy++;
+        if (st === 'error' && !lastErr) lastErr = r;
         var tr = document.createElement('tr'), s = statusOf(r.status);
         cell(tr, s[0], s[1]);
-        cell(tr, r.hook || r.topic || ('Row ' + r.row));
+        cell(tr, r.file || '');
         cell(tr, r.account);
         cell(tr, resultOf(r)).className = 'small';
         qb.appendChild(tr);
@@ -202,8 +212,8 @@ details summary{cursor:pointer;color:var(--accent);font-size:14px}
     $('num1').className = 'num done'; $('num1').textContent = '✓';
     $('num2').className = 'num' + (d.accounts.length ? ' done' : ''); $('num2').textContent = d.accounts.length ? '✓' : '2';
     $('btn-run').disabled = !(d.accounts.length && waiting && !busy);
-    $('btn-run').title = !d.accounts.length ? 'Connect a TikTok account first' : (!waiting ? 'No videos are waiting to publish' : '');
-    return { waiting: waiting, busy: busy, accounts: d.accounts.length };
+    $('btn-run').title = !d.accounts.length ? 'Connect a TikTok account first' : (!waiting ? 'There are no videos in the inbox folder' : '');
+    return { waiting: waiting, busy: busy, accounts: d.accounts.length, lastErr: lastErr };
   }
 
   function load(quiet) {
@@ -226,16 +236,18 @@ details summary{cursor:pointer;color:var(--accent);font-size:14px}
     poll = setInterval(function () {
       load(true).then(function (s) {
         if (!s) return;
+        var secs = (Date.now() - started) / 1000;
         if (s.busy) seenBusy = true;
-        var mins = Math.floor((Date.now() - started) / 60000);
-        if (s.busy || (!seenBusy && Date.now() - started < 25000)) {
-          setMsg('run-msg', 'Publishing… this usually takes up to a minute' + (mins ? ' (' + mins + ' min so far)' : '') + '. You can keep this page open.', 'busy', true);
-        } else {
-          stopPoll(); setMsg('run-msg', 'Done. See the result in the table below.', 'ok');
-        }
-        if (Date.now() - started > 5 * 60000) { stopPoll(); setMsg('run-msg', 'Still working. Press Refresh later to see the result.', 'busy'); }
+        if (s.busy) setMsg('run-msg', 'Publishing a video… this usually takes a minute or two. You can keep this page open.', 'busy', true);
+        else if (!seenBusy && secs < 40) setMsg('run-msg', 'Starting…', 'busy', true);
+        else if (s.waiting) {
+          var err = s.lastErr && Date.parse(s.lastErr.processed_at) > started - 5000;
+          if (err) { stopPoll(); setMsg('run-msg', 'Stopped: ' + friendlyError(s.lastErr.error), 'err'); }
+          else setMsg('run-msg', 'Waiting before the next video (a short pause between posts is normal)…', 'busy', true);
+        } else { stopPoll(); setMsg('run-msg', 'Done. See the results in the table below.', 'ok'); }
+        if (Date.now() - started > 90 * 60000) { stopPoll(); setMsg('run-msg', 'Still working. Press Refresh later to see the result.', 'busy'); }
       });
-    }, 5000);
+    }, 8000);
   }
 
   function disconnect(name, btn) {
